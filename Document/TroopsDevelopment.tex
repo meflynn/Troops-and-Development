@@ -1,0 +1,609 @@
+\documentclass[12pt]{article}
+\usepackage{amsmath,amssymb,graphicx,paralist,setspace,amsthm,pdflscape,fancyhdr,fullpage,rotating,tikz,xcolor,float,varwidth}
+%\usepackage{times}
+\usepackage{longtable}
+\usepackage{sectsty}
+\usepackage[compact]{titlesec}
+%\sectionfont{\centering}
+\usepackage{subfigure}
+%\subsectionfont{\centering}
+%\usepackage{harvard}
+\usepackage[]{har2nat}
+\setcitestyle{aysep={}}
+\setcitestyle{notesep={, }}
+%\citationstyle{dcu}
+\usepackage[space]{grffile}
+\bibliographystyle{apsr}
+\usepackage{appendix}
+\usepackage{setspace} % load setspace before footmisc
+\usepackage{footmisc}
+\renewcommand{\footnotelayout}{\doublespacing}
+\setlength{\footnotesep}{\baselineskip}
+\usepackage[space]{grffile}
+\usepackage[urlcolor=blue,citecolor=blue,linkcolor=blue,linktocpage=true,backref=true]{hyperref}
+\hypersetup{
+colorlinks=true,
+urlcolor=blue
+}
+
+
+
+
+\newtheorem{hyp}{Hypothesis}
+\makeatletter
+\newcounter{subhyp} 
+\let\savedc@hyp\c@hyp
+\newenvironment{subhyp}
+ {%
+  \setcounter{subhyp}{0}%
+  \stepcounter{hyp}%
+  \edef\saved@hyp{\thehyp}% Save the current value of hyp
+  \let\c@hyp\c@subhyp     % Now hyp is subhyp
+  \renewcommand{\thehyp}{\saved@hyp\alph{hyp}}%
+ }
+ {}
+\newcommand{\normhyp}{%
+  \let\c@hyp\savedc@hyp % revert to the old one
+  \renewcommand\thehyp{\arabic{hyp}}%
+} 
+\makeatother
+\parskip = 3pt
+\usepackage[space]{grffile}
+\graphicspath{{./}{./Data/}}
+
+\titlespacing{\section}{0pt}{*0}{*2}
+\titlespacing{\subsection}{0pt}{*0}{*0}
+\titlespacing{\subsubsection}{0pt}{1cm}{*0}
+
+
+
+\begin{document}
+
+
+
+\title{U.S. Troop Deployments and Development in Latin America\thanks{We would like to thank Tobias Heinrich, Lt. Col. Carol McClelland, and a variety of individuals at US Army South, US Air Force South, and SOUTHCOM for their help in gathering data for this manuscript. We would also like to thank interview participants for their time and assistance. All remaining errors are our own.}\footnote{All authors contributed equally to the preparation of this manuscript, and, as such, are listed in alphabetical order}}
+\author{Michael E. Flynn \\
+Department of Political Science  \\
+Kansas State University
+\and
+Rebecca Kaye \\
+Department of Political Science \\
+Kansas State University
+\and
+Carla Martinez Machain \\
+Department of Political Science \\
+Kansas State University
+}
+\date{}
+
+\maketitle
+
+\vfill
+\begin{abstract}
+\noindent  Recent research has found a positive correlation between the presence of large, long-term US military deployments and various developmental outcomes of interest, such as economic growth, educational attainment, domestic infrastructure, and more. Though these findings are compelling, existing research designs, which utilize large-N cross-sectional time series data structures, and long-term lags for the variables of interest, are poorly suited to identify the specific causal mechanisms that lead to these outcomes. In this project, we use new subnational data on economic outcomes and US military deployments throughout Latin America to better evaluate the potential causal effects in these relationships. We supplement our large-N analysis with qualitative data obtained from interviews with US military personnel who have been deployed to the region on development-oriented missions to help identify causal mechanisms. This research design allows us to exploit variation in subnational economic outcomes, as well as variation in the application of the treatment (i.e. US military deployments), in order to understand what, if any, extended effects these military deployments might have on their host-state environments. 
+\end{abstract}
+\vfill
+\thispagestyle{empty}
+\clearpage
+
+\begin{doublespace}
+
+
+\section{Introduction}
+
+Major powers have long used the deployment of military personnel as a means of power projection. While the concept of power projection is central to much of the literature on conflict studies, only in recent years have scholars begun to directly examine the determinants and effects of military deployments \cite{biglaiser2007following,kane2012development,jones2012us,MMM2013,AllenFlynn2013,Allenetal2014,Braithwaite2015}. Of particular interest, these studies have shown that US military deployments have a range of economic effects, both on economic relations between the US and the host-state \cite{biglaiser2007following,biglaiser2009interdependence} and on the economic and infrastructure of the host-state itself \cite{kane2012development,jones2012us}. These findings are similar to those of previous studies that have found that states' alliance and economic relationships reinforce one another \cite{GowaMansfield1993,GowaMansfield2004,Fordham2008}. However, where these studies advance most dramatically upon previous research is in their focus on the domestic implications of foreign military deployments, such as increasing economic growth rates \cite{jones2012us} and infrastructural growth \cite{kane2012development}.
+
+The finding that US military deployments can have a range of positive effects on the host-state runs counter to many long-standing critiques of American foreign policy, and is at odds with how most people typically think of military deployments. Various authors have discussed a host of ills that come with large, long-standing military deployments, such as crime, sex trafficking, drug trafficking, riots, and more \citeaffixed{Nelson1987,Baker2004,johnson2004b}{e.g.}. While compelling, the relationship between US military deployments and the host-state's domestic economy requires further analysis before a direct causal link can be established. In particular, previous studies suffer from relatively vague causal mechanisms, and the use of highly aggregated temporal and spatial data may suffer from aggregation bias. 
+
+Herein we use new subnational data on US military deployments and interviews with US military personnel to better understand the potential causal linkages between US military deployments to Latin American countries and development outcomes. Since World War II the US has maintained a large overseas military presence. During the War on Terror deployments to Afghanistan and Iraq have garnered the most attention. However, since the 1980s the US has also deployed thousands of military personnel to Latin American states on an annual basis with the aim of promoting development-oriented outcomes. These troops typically deploy for the purposes of building schools, clinics, and providing medical and veterinary care to populations within the host-state. Such deployments directly contribute to infrastructural, economic, and health outcomes in the host-state. By using subnational data on both troop deployments and various developmental outcomes (i.e. illiteracy rates, infant mortality rates, etc.) we can better link variation in the presence of US military forces to developmental outcomes, thereby alleviating some of the problems faced by previous cross-national analyses. 
+
+This paper proceeds as follows. First, we provide a brief overview of US Southern Command's (SOUTHCOM) annual programs that provide humanitarian and civic-assistance deployments to Latin American countries. Second, we provide a fuller review of the literature on the effects of military deployments, and elaborate on the specific theoretical and methodological shortcomings of previous studies. Third, we draw on the foreign aid literature and interviews with US military personnel to provide a theoretical framework for understanding 1) which countries receive development-oriented deployments, 2) which regions \textit{within} countries receive development-oriented deployments, and 3) what effects these deployments have on subnational outcomes on various indicators of human development, such as infant mortality rates and illiteracy rates. Lastly, we present our research design and our models analyzing these three areas, along with a discussion of our results.
+
+\section{Background}
+
+The US Southern Command (SOUTHCOM) has participated in a variety of development-oriented deployments in Central and South America through its Beyond the Horizon (Army), New Horizons (Air Force), and Continuing Promise (Navy) military exercises. Since 1996, 17 US states, through their National Guard units, have been ``paired'' with 26 countries within SOUTHCOM's Area of Responsibility (AOR). The AOR includes all countries south of Mexico within Latin America and the Caribbean. In the 1980s, annual humanitarian and civic assistance exercises began with the New Horizons program and have since continued to develop with the creation of Beyond the Horizons in 2008 \cite{southcom2015}.
+%%However, regular annual humanitarian and civic assistance exercises began with the New Horizons program in the 1980s, and have continued to develop through the present with the creation of Beyond the Horizon in 2008 \cite{southcom2015}.%%
+Every year, under the auspices of SOUTHCOM, these National Guard units collaborate with host-state governments, their militaries, and other allied militaries (e.g. Canada) to plan a round exercises they will conduct in three Latin American countries \cite{SouthcomStatePartner}.
+%%Every year, these National Guard units, which are attached to SOUTHCOM, work with host-state governments, host-state militaries, and other allied militaries (e.g. Canada) to plan a round of exercises to be conducted in three Latin American countries \cite{SouthcomStatePartner}.%%
+In each round of exercises, US military personnel deploy to three countries within SOUTHCOM'S AOR. Each country receives 400--500 troops over the 3-4 month duration of the exercises.\footnote{Data obtained from New Horizons reports provided by US Air Force South}.
+
+The explicit aim of these missions is to provide training opportunities for "US and partner nation personnel and demonstrate US values to the region'' \cite{SouthcomStatePartner}. More specifically, the types of services that the US troops provide include medical, dental, and veterinary care ranging from preventative medicine to public health, immunization, medical education, nutritional care, and civil engineering projects. SOUTHCOM's website explicitly emphasizes the immediate benefit of these services, such as providing hundreds of thousands of prescription glasses to local citizens as well as sustained benefit of these services that come from different types of training, such as medical training, that the troops are providing. The webpage for Beyond the Horizon/New Horizons 2015 notes that "training events enhanced the medical readiness training of US forces and provide sustained health benefits to the population'' \cite{southcom2015}. The services and training that the troops are providing take place all throughout the host-state, ranging from urban centers to more remote rural areas of the country. According to the US Department of Defense (DoD), troops are deployed to ``some of the poorest, most remote stretches of the countries'' \cite{Miles2013}.
+
+%%U.S. Southern Command has participated in a variety of development-oriented deployments in Central and South America through its Beyond the Horizon (Army) and New Horizons (Air Force) military exercises.  New Horizons began as a program in the 1980's, and US troops deploy annually for it.  The explicit aim of these missions is to train U.S. troops in what is referred to as ``civil military operations skill sets'' and providing humanitarian services to the population in the host country.  The types of services that the U.S. troops provide include medical, dental, and veterinary care, including preventive medicine, pulbic health, immunization, medical education, and nutritional care.  Southern Command's website explicitly states that beyond the immediate benefit of these services, they are expected to provide ``sustained health benefits to the population.''  In addition, they engage in activities such as building schools and clinics.  
+
+
+%%The Department of Defense (DoD) argues that the deployments go to ``some of the poorest, most remote stretches of the countries.'' 
+
+ 
+
+Additionally, SOUTHCOM's website claims that the relationships fostered during these exercises will be beneficial in the event a situation arises that requires regional cooperation \cite{Miles2013}. In a DoD article, the deputy chief of the security cooperation office at the US Embassy in Panama noted, ``They are building something for a community that otherwise might be on the bottom of the priority list in getting those resources from the government of Panama'' \cite{Miles2013}. If this is indeed the case, then it means that these exercises are, at the very least, saving the governments resources they would otherwise have to expend in construction and repairs of these facilities. 
+
+%%In addition, SOUTHCOM's website states that there is an expectation that the United States will benefit from this activity, stating that ``the relationships forged during these exercises can be called upon in the event of a regional situation that requires a cooperative response.''\cite{miles2013}.    A DoD article reported the deputy chief of the security cooperation office at the U.S. Embassy in Panama stating, ``They are building something for a community that otherwise might be on the bottom of the priority list in getting those resources from the government of Panama''\cite{miles2013}.  If this is indeed the case, then it means that the governments of the host-state are, at the very least, saving resources that they would otherwise have to spend in building these facilities.  
+
+
+\section{The Economic Effects of Troop Deployments}
+
+There is a variety of work that has been written on the effects of US troop deployments on the economy of the host-state. Previous works find that a US troop presence can be helpful to the host economy by increasing economic growth, Foreign Direct Investment (FDI), and trade with the host country\cite{biglaiser2007following,biglaiser2009interdependence,jones2012us}. US troops tend to be deployed to unstable areas that are unappealing to investors. However, the presence of the US military is meant to act as a guarantee of the stability of the state, as well as a signal of US commitment there, which is in turn meant to assuage concerns of potential investors. Moreover, \citeasnoun{jones2012us} argue that the presence of US troops facilitates the diffusion of Western norms and institutions, such as, discipline, lawful authority, respect for human and economic rights, and construction standards. 
+
+%%It has been found that a US troop presence can be helpful to the host economy by increasing both Foreign Direct Investment (FDI) and trade between the US and the host-state, as well as economic growth \cite{biglaiser2007following,biglaiser2009interdependence,jones2012us}.  The causal mechanism proposed by these scholars is that even though U.S. troops tend to be deployed to unstable states that are unappealing to investors, the presence of the military acts as a guarantee of the stability of the state, and a signal of U.S. commitment to the host-state, that eases the nerves of potential investors\cite{biglaiser2007following,biglaiser2009interdependence}.  Further, \citeasnoun{jones2012us} argue that the presence of US troops allows allows for the diffusion of norms and institutions (they list ``Discipline, lawful authority, respect for human and economic rights, construction standards'' as examples) that facilitate economic growth.  
+
+Recent work by Tim Kane and Garrett Jones has also found that the presence of large, long-term US military deployments correlates with positive growth rates in the host-state's economy and domestic infrastructure.\cite{kane2012development,jones2012us}. \citeasnoun{kane2012development} 
+specifically looks at how a US troop presence affects development in the host state. Analyzing state-level data from 1950 to 2009, one of his findings is that a US troop presence correlates with an increased number of telephone lines in the host state, a development indicator used by the World Bank. He argues that US troops bring stability, establish infrastructure, and diffuse positive economic norms, all of which enable development. The unit of analysis he uses is the state-year, which previous studies in this area have also used.
+%%looks specifically at how it is that a  US troop presence affects development in the host-state.  Looking at state-level data between 1950 to 2009, he finds that a U.S. troop presence correlates with decreased infant mortality and increased number of telephone lines (a development indicator used by the World Bank).  He argues that this comes about through increased stability brought by US troops, the establishment of infrastructure, and the diffusion of positive economic norms.  
+
+%%I'm not entirely convinced, but this seems like a good place for: As \citeasnoun{AllenFlynn2013} address in their work on troops and crime, there are inherent limitations to looking at the effect of troops on the host-state at the national level. They identify the dilemma of aggregation bias when looking at crime rates in states to which troops are deployed. Overall, their evidence does not point to a clear and systematic relationship between US troops and higher crime rates in the host state. However, they reason that this may in part derive from a national rather than subnational analysis. They consider the possibility that incidents of crime occur more frequently around military bases where troops are concentrated. Therefore, if other regions of the host-state have lower crime rates, they will wash out the incidents of crime within the vicinity of a base. The limitations of country-level analysis that Allen and Flynn identify clearly do not only pertain to their study of troops and crime. Rather, it arguably pertains to all works that seek a nuanced understanding of the effect a group in concentrated pockets of a particular area. (para.) Our project adds to the literature in that we use subnational data in addition to country-level data to analyze the effects of SOUTHCOM deployments on host-state environments. Following Allen and Flynn's considerations on the gradations that country-level analyses potentially wash out, we reason that deployments do not occur evenly throughout a country at any given time. Moreover, if a country has multiple US troop deployments at once, there is nothing to say, for example, that Army soldiers carrying out a MEDRETE in one province has the same effect on a neighboring province where where Navy construction teams are building a school. --thoughts? B.
+
+These studies suggest similar causal mechanisms, identifying three primary means by which deployments may cause such increases. \citeasnoun{kane2012development} specifically highlights three mechanisms by which US military deployments can facilitate innovation diffusion: 1) a peacekeeping/security umbrella effect; 2) investment stability; 3) and infrastructure. Generally speaking, the presence of US military forces creates conditions of stability and peace that promote conditions favorable to domestic and international investment. The presence of US military personnel also provides local populations with access to knowledge regarding ``best practices." Often, this involves ``learning by doing'' through the recruitment of host-state labor for large-scale projects like constructing a new military base \cite[4]{kane2012development}. 
+
+\citeasnoun{jones2012us} propose three similar mechanisms. The first is a security umbrella provided by US military forces that create conditions of peace and stability, which the authors argue correlate with greater respect for property rights. This, in turn, creates conditions for market activity growth. Second, the presence of US military forces can lead to a diffusion of knowledge and skill from the US military personnel to the host-state population. This diffusion is not limited to technology, but also includes institutions and norms, such as respect for the rule of law, economic/property rights, and best practices in construction standards \cite[228]{jones2012us}. Lastly, the third causal mechanism Jones and Kane suggest is stimulation of aggregate demand. The authors maintain that the presence of a large, long-term US military deployment can stimulate demand within the local economy. Service personnel stationed overseas often enjoy relatively high wages compared to the surrounding host-state populations. For example, \citeasnoun[154]{Nelson1987} discusses the fact that prior to economic recovery in West Germany, US military personnel enjoyed strong purchasing power through a favorable exchange rate. In this case, the large foreign military deployment essentially added an equally large new consumer base to the German economy, creating a large market for local businesses.
+
+%% 1) security umbrella; 2) Diffusion of technology and institutions; and 3) Stimulating aggregate demand. US military forces create conditions of peace and stability, which the authors argue correlate with greater respect for property rights. This, in turn, creates conditions for market activity growth. Second, the presence of US military forces can lead to a diffusion of knowledge and skill from the US military personnel to the host-state population. This diffusion is not limited to technology, but also includes institutions and norms, such as respect for the rule of law, economic/property rights, and best practices in construction standards \cite[228]{jones2012us}. Lastly, the authors argue that the presence of a large, long-term US military deployment can stimulate demand within the local economy. Service personnel stationed overseas often enjoy relatively high wages compared to the surrounding host-state populations. For example, \citeasnoun[154]{Nelson1987} discusses the fact that prior to economic recovery in West Germany, US military personnel enjoyed strong purchasing power through a favorable exchange rate. In this case a large foreign military deployment essentially added a large new consumer base to the German economy, creating a large market for local businesses.
+
+The results of these studies are compelling. However, the proposed causal mechanisms require greater clarification to establish their plausibility. First, the security umbrella dynamic is plausible, but the precise causal mechanism is still highly unclear, and actually reduces the direct causal impact of troops themselves. While most US military deployments are relatively small, stability could still result from a sort of signaling effect. If the presence of those troops is taken as an indicator of strong ties between the US and the host-state then it may help to strengthen stability within a region by reducing the likelihood of neighboring states picking fights with a US--backed client state. This may lead investors to feel more confident investing in the host-state. 
+
+Second, it is unclear how generalizable the demand stimulus argument is. A few particularly large deployments, such as those in Germany, Japan, and Korea might be of sufficient size to stimulate economic and infrastructural growth, but most deployments are relatively small. The median non-zero global deployment size between 1950 and 2014 is only about 20 soldiers. When we look at the early Cold War period the highest median value for a non-zero troop deployment is only 80. Looking at the entire time period 90\% of non-zero observations are less than ~3,100 troops. Given that the overwhelming number of deployments are quite small it seems unlikely that troops are exerting a stimulus effect that can be accounting for any broader trends in economic or infrastructural growth. Given that most deployments are so small they are also unlikely to be associated with large infrastructural projects that may employ large numbers of local laborers. 
+
+Though most deployments are small, many humanitarian and civic-assistance deployments do have an infrastructural component. These deployments do tend to be substantially larger than the median deployment, but are usually of shorter duration. SOUTHCOM's annual exercises in Latin America often involve the construction of schools, clinics, latrines, and other building projects of various sizes. The upcoming BTH 2016 exercises in Guatemala will have 350--380 US military personnel in country at any given time, with approximately 1,750 total US military personnel slated to be deployed to the country over the entire duration of the exercise \cite{CPT20160309}. Furthermore, supplies for any construction projects are generally locally sourced, with 30--34 commodities contracts between US military personnel and local or regional suppliers \cite{CPT20160309}. Some of these contracts involve the employment of local labor to work alongside US military personnel. As one interview participant described it, ``we're trying to energize that region. Not just building a building, but creating jobs'' \cite{CPT20160309}. Given our currently available data, the short-term economic stimulus effect of these deployments seems to primarily work through increased consumption by US military personnel. The stated primary purpose of these deployments is the training of US military personnel, and some interview participants indicated that they worked primarily with other US military personnel with little or not direct involvement from local laborers. Individuals have also indicated that US personnel are generally eating regularly at local restaurants near their job sites \cite{SFC20160226,SFC20160308}. Given that the employment of local labor may vary by project and location, our limited number of interviews may be unable to speak to the more general trends in labor use during these projects.
+
+
+%%However, we know that not all troop deployments have the same aim, and therefore we would not expect them to have the same effect on regional stability or the level of development in the host country.  For example, troops that are present in a state as part of a "lily-pad'' meant to be ready to deploy to a conflict in a nearby location may signal stability and promote investment in the host-state, but this mechanism suggests that troops are merely a catalyst for investment, which is what then has an effect on various developmental outcomes---not the troops themselves. In this example troops would likely not affect a development indicator such as infant mortality in the same way in which a deployment that built health clinics would. In this example we should expect troops to be having a more direct positive effect on developmental outcomes. While the former may still have an indirect effect through the stability channels proposed in previous work, we should expect the latter's effect to be much more direct and pronounced, given that the actual aim of these deployments is to increase development in the host country.  
+
+The clearest causal mechanism is the diffusion of technology, knowledge, and policies. Many US military deployments, regardless of size and purpose, involve a training or exercise component. As noted above, US military personnel often deploy for a wide range of purposes, some of which include the express purpose of promoting developmental outcomes and promoting particular policies. Such deployments are far more likely to have a direct impact on economic growth and infrastructural development within the host-state. SOUTHCOM's Beyond the Horizon and New Horizons programs serve as primary examples of this dynamic and should have an effect through two primary mechanisms. The first is regularity. These exercises are conducted on an annual basis. Though deployments to any individual country are usually small, they may have an effect through repeat interactions and continuing relationships with the host-state. Second, These deployments involve activities that should have a direct effect on the sorts of developmental outcomes that \citeasnoun{kane2012development} and \citeasnoun{jones2012us} focus on. Given that these deployments are supposed to target poorer and vulnerable populations within the host-state, Medical Readiness and Training Exercises (MEDRETES) and Veterinary Readiness and Training Exercises (VETRETES) could have profound effects on the economies and health of rural and underprivileged populations. For example, the 2014 round of Beyond the Horizon provided medical and dental treatment to over 42,000 patients in Belize, Honduras, and the Dominican Republic. They also built 16 new classrooms and constructed two new clinics \cite[21]{Kelly2015}. In 2013 New Horizons saw 15,000 patients, conducted 2,000 surgical and dental procedures through its MEDRETES program, and constructed four school buildings, spending approximately \$2.5 million in Belize alone---approximately 0.15\% of Belize's GDP for that year \cite{WDI2015}. Given the size of the populations of the four administrative districts to which US military personnel were deployed, this spending translates into approximately \$17 per person, adjusted for purchasing power parity.\footnote{Note that limitations on census data availability means that we use 2010 regional population. The World Bank lists the PPP converter at .6 for Guatemala in 2013 \cite{WDI2015}.}  When considering  In this same year New Horizons VETMETES program saw over 3,000 animals, providing vaccinations and veterinary care.\footnote{Data obtained from US Air Forces South.} 
+
+%Expand here
+These activities can potentially lead to long-term improvements in the economies, health, and education of poorer populations within the host-state.  Constructing clinics and schools have clear and direct links to the host-state's ability to provide medical care and education to a larger number of people. The fact that US military personnel are often working with host-state civilians and members of the host-state's military can also help to promote the diffusion of knowledge and experience. Providing veterinary care in rural areas where economies are more heavily dependent upon agriculture can help to promote economic growth by preserving assets that are central to economic productivity. 
+
+Beyond the proposed theoretical mechanisms previous studies also suffer from limitations in their research designs. What these previous studies have in common is that their unit of analysis is the state-year. These studies rely on highly aggregated data on both troop deployments and the outcomes of interest, such as education, economic growth, and infrastructural growth. Furthermore, \citeasnoun{kane2012development} and \citeasnoun{jones2012us} also use long time lags of 40 years in their analyses. These issues present difficulties in establishing a causal link between US military deployments and the outcomes of interest. For example, given that US military deployments are often limited to particular regions within a country, national-level changes in economic growth or educational attainment could be the result of increases in regions where there are no US military deployments. Accordingly, large US military deployments can occur alongside increases in various developmental outcomes, but have no causal impact. Addressing this issue requires advances beyond the country or country-year as the unit of analysis. 
+
+Previous studies on the effects of troop deployments have acknowledged these limitations (see \citeasnoun{AllenFlynn2013,bell2015troops}), but have largely been constrained by data availability.  In this paper we seek to address this shortcoming by focusing on deployments that have an explicit development agenda---in this case New Horizons and Beyond the Horizon. We argue that if we truly want to understand the effect of U.S. troops on development, we need to study them at a lower level.  Many of the states that troops deploy to have vast populations and expansive territories.  It would thus seem unreasonable to expect that the building of, for example, a health clinic in one province of the country would have a direct effect on infant mortality in a different province.  We thus focus our analysis in this paper on the sub-national level, by states or provinces, depending on the political system of the host-state.  
+
+
+\section{Troop Deployments as Foreign Aid}
+
+In this section we examine US military deployments as methods of foreign aid provision. We divide this section into three parts. First we look at the factors that determine which state receive humanitarian and civic assistance deployments. Second, we look at the factors that drive the location of deployments at the sub-national level. Third, we look at the effects that these deployments have at the subnational level.
+
+
+\subsection{Development Deployments -- Who Gets Them?}
+
+Substantial evidence indicates that the US uses foreign aid to promote its interests abroad. US alliance ties, military deployments, the recipient state's level of development, its level of democratization, and trade with the United States all contribute to whether or not the state receives aid.\cite{MKP1998,AlesinaDollar2000,bdm07,FleckKilby2006,FleckKilby2010,MilnerTingley2011}. Accordingly, the aid that the US distributes can serve a wide variety of purposes, such as promoting US commercial interests \cite{FleckKilby2006,MilnerTingley2010}, for humanitarian reasons \cite{drury2005politics}, or as a way to obtain policy concessions from the recipient \cite{BDMetal2003}. Importantly, recent work by \citeasnoun{heinrich2013foreign} notes that self-interested motivations can exist alongside more altruistic humanitarian goals.  
+
+Herein we draw on previous research on foreign economic aid to understand which states receive development-oriented US military deployments. Effectively, we treat these deployments as delivery mechanisms for development, humanitarian, and development aid\footnote{We should note that we were told repeatedly during interviews with Army personnel that the primary aim of the deployments, as justified to the U.S. Congress, is the training of U.S. troops, as a ``readiness issue'' \cite{CPT20160309}.}. Conceptualizing troop deployments in this way is important for some key reasons. First, in the case of development-oriented deployments such as Beyond the Horizon/New Horizons, the humanitarian aspect is evident.  Over and over again statements by SOUTHCOM emphasize the positive (and long-lasting) effects that these types of deployments will have on development.  One of our interviewees emphasized that the first consideration in choosing which country to send one of these deployments to is whether there is a need for this type of aid \cite{CPT20160309}. Though these deployments necessarily involve military personnel, their goals are ostensibly in line with those of projects we would typically associate with economic development aid delivered through government or private-sector channels. If these deployments are indeed planned on the basis of need, as SOUTHCOM descriptions suggest, then existing research should give us a theoretical basis on which to judge the factors that ought to be driving the allocation of US military resources for development missions. 
+
+Second, existing research also gives us a basis from which we can evaluate the influence of political factors that may be driving allocation decisions. SOUTHCOM's own website also clearly states that there is an expectation that the United States will benefit from this activity, stating that ``the relationships forged during these exercises can be called upon in the event of a regional situation that requires a cooperative response''\cite{southcom2015}.  One of our interview subjects also emphasized that beyond need, a deployment location has to align with U.S. strategic objectives within the region \cite{CPT20160309}.  In other words, much like traditional foreign aid, there seems to be an exchange of aid for policy concessions in place.
+
+\begin{figure}[t]
+\begin{center}
+\includegraphics[scale=0.9]{../Figures/Map of Deployments.pdf}
+\caption{Map depicting countries within SOUTHCOM area of responsibility. Countries shaded according to the number of Beyond the Horizon, New Horizons, and Continuing Promise rounds they were selected for, 2002--2012.}
+\label{fig:map1}
+\end{center}
+\end{figure}
+
+% It might be useful for this to come earlier in the paper. MF.
+We also limit our analysis to countries within SOUTHCOM's area of responsibility. However, not all of these states have received development-oriented deployments. Figure \ref{fig:map1} shows the countries within SOUTHCOM's area of responsibility. Countries are shaded according to the number of times US military forces have deployed to that state as a part of one of the BTH, NH, or CP missions from 2002--2012. States colored in blue have never hosted such deployments. Countries in red have received at least one development-oriented deployment, with darker colors indicating that the country has participated in more rounds. The most notable feature of this map is that not every country has received a deployment. Most countries have never received a deployment, with Guatemala and Peru having the highest number of deployments having participated in these exercises in four separate years between 2002 and 2012.
+ 
+The foreign aid literature has found that, at least to some degree, need and humanitarian concerns matter to the population, and by extension to the leader, when making decisions on where to allocate foreign aid \cite{AlesinaDollar2000,drury2005politics,lumsdaine1993moral,van2004media}. Most commonly, previous studies have found a link between poorer, less-developed countries and the likelihood of receiving aid. Given that these deployments have a strong developmental and humanitarian component, we should expect that the countries to which they are deployed should be the ones with the greatest amount  of ``need.'' Interviews with US military personnel suggest that need is also a part of the process in determining which countries receive deployments, and which specific projects are taken on. US military personnel work with members of the host-state's central government, as well as members of local and regional governments to develop a list of projects. Once the initial list is in place US personnel travel to proposed project locations in order to establish the need of the proposed projects, rejecting projects that seem redundant or unnecessary \cite{CPT20160309}.  We should therefore expect less developed states within the region to be more likely to receive such deployments: 
+
+\begin{hyp}
+Less developed states will be more likely to host a US development-oriented deployment.
+\end{hyp}
+
+We know that states take into account other factors that go beyond need in determining the allocation of foreign aid. In particular, there is evidence from previous research that states exchange foreign aid for policy concessions and support in a wide range of areas \cite{LaiMorey2006,de2007foreign,Faye12,MilnerTingley2010,FleckKilby2006}. More specifically, leaders within the donor country can use foreign aid to advance the interests of their constituents, as well as to advance broader foreign policy aims. The leader in the donor country gets the advantage of providing the concessions to his/her selectorate as a public good, while the funds that the leader in the host-state receives can then be used to keep members of their winning coalition happy as well. These funds can be used to offset the costs of concessions if those policy concessions made are not necessarily what the general population would want foreign policy to look like \cite{de2007foreign}. \citeasnoun{MilnerTingley2010} find that in line with predictions arising from trade theory, legislators who represent districts with greater capital endowments are more likely to support foreign aid. These capital-intensive districts are more likely to have interests in export-oriented industries, which in turn benefit more from aid to potential recipient countries that can be used to lower tariffs and help finance the purchase of American goods.    
+
+Given that the deployments we focus on constitute a transfer of resources from the US to the recipient state, it is possible that they are used to obtain concessions from the recipient state, or to promote US interests in some other way. Foreign aid that is given through direct services, such as building schools or hospitals, or the provision of health care can serve this same purpose by either freeing up resources that the leader can then distribute to the winning coalition, or by allowing the leader to determine where these projects go to. These deployments also involve direct spending by US military personnel on goods within the host-state---often for construction materials and supplies \cite{CPT20160309,SFC20160226}. Previous works has shown that states that are more salient to the donor state will be more likely to receive aid in exchange for policy concessions. This is in line with information obtained from US military personnel. Officials we interviewed stated that while all countries within SOUTHCOM's AOR were technically eligible to receive deployments, deployments were generally limited to the top 10 countries that SOUTHCOM officials prioritized \cite{CPT20160309}\footnote{The officials that we interviewed could not speak to the specifics of why certain countries made SOUTHCOM's top priority list, or which factors effectively ruled out some countries}.  
+
+Theory and interviews suggest that there is a strategic component to the decisions governing which states receive deployments. If development-oriented troop deployments are indeed used as a bargaining tool, we should expect more deployments to states that are salient to the United States. Given that previous research has highlighted the importance of commercial interests and export promotion specifically \cite{FleckKilby2006,MilnerTingley2010}, and given the clear influx of US dollars resulting from these deployments, we focus on US exports to the recipient state as an indicator of economically salient relationships.    
+
+
+\begin{hyp}
+States that import more from the US will be more likely to host a US development-oriented deployment.
+\end{hyp}
+
+% Let's check the wording on this.
+
+We consider the mutual constraints of need and self-interest. Interviews with US military officials suggest that while need is certainly a governing consideration, strategic factors are also important, and both must be taken into account. One interview participant noted, ``There has to be a need, and it must align with strategic objectives for a particular country or region'' \cite{CPT20160309}. The implication of this logic suggests that in a case of two countries with equal need, if one country is more salient to US interests, then it will receive preference for a deployment over the other country.
+
+%%We consider the possibility that need and self-interest constrain one another. Interviews with US military officials suggest that while need is certainly a governing factor, strategic factors are also important, and the two must considered in tandem. That is, we expect both need and self-interest to factor into US decisions over which countries receive deployments, and so we expect them to condition one another. As one interview participant noted, ``There has to be a need, and it must align with strategic objectives for a particular country or region'' \cite{CPT20160309}. Thus it seems that US officials are balancing these two factors in their decisions to allocate deployments. The implication of this logic suggests that in a case of two countries with equal need, but where one country is more clearly salient to US interests, the more salient country will receive a deployment.
+
+\begin{hyp}
+     The effect of exports should be larger for poorer states than for wealthier states.
+\end{hyp}
+
+Previous research has also shown that states tend to allocate foreign aid according to broader political relationships between states. As noted above, interview participants indicate that strategic considerations do matter when deciding deployment locations. Trade constitutes just one of these types of relationships. Even in the case of humanitarian-oriented aid, we argue that development-oriented deployments will be more likely to go to states whose foreign policy matches up with that of the United States.  While we could argue that the U.S. is more likely to give development aid to states that have different foreign policy positions, as a way to get them to align with the United States, humanitarian aid can be difficult to use as a positive incentive.  The reason for this is that once humanitarian programs are in place, it can be hard to make a credible threat to remove them, as people's livelihood can come to depend on them (cite stuff about Bush and AIDS in Africa).  Thus, we expect that these humanitarian deployments will be more of a reward to states that have aligned with the United States' position in the international system.     
+
+\begin{hyp}
+States that are supportive of US foreign policy will be more likely to host a US development-oriented deployment.
+\end{hyp}
+
+
+
+\subsection{Determinants of Subnational Deployment Locations}
+
+Above we detailed which countries receive deployments. However, even in countries that get deployments, not all regions within that country receive a deployment. For example, in Peru, which has received deployments as a part of four separate rounds of BTH/NH/CP only five of 26 regions have ever received deployments, and only one of these five regions has received multiple deployments (see Figure \ref{fig:mapperu} below).  Our interviews confirm that the selection of deployment locations at the subnational level is a decision made jointly be American officials in military command and officials from the host country's government \cite{SFC20160226,CPT20160309}.  This implies that the preferences of both the United States and the host country are likely to matter when it comes to determining which subnational units will receive a U.S. development-oriented deployment.
+
+Analogously to how the US would have a preference for deployments going to less developed states for humanitarian purposes, we should expect that when it comes to choosing a sub-national unit (state or province) to which to send a deployment, American officials would have a preference for selecting less developed locations, as these would be perceived as having the greatest amount of need.  In addition, we know from our interviews that the decisions on where to send deployments to within a state are made in conjunction with the host state government.  For example, one of our interviewees suggested that at the subnational level, the American personnel prefer going to areas with ``a need'' and with larger populations so that more people can benefit from the deployment \cite{CPT20160309}.  Before military personnel arrive in a location, the American ambassador will link up with personnel from the host state government and, based on the host state's plans and goals, come up with a list of affected areas that they would like to receive an American deployment.  Leading up to a deployment (about 18-20 months before it), American military personnel involved in strategic planning will meet in the capital city of the host state with personnel from several federal ministries (such a health, education, defense and agricultural) to determine the locations and scope of the deployments. The host government will essentially come up with a list of 10 to 20 locations from which the Americans can then select where to go \cite{CPT20160309}.  Two observations stand out at this point, the first is that the decision on where to deploy troops subnationally is made jointly by the American military diplomatic and military personnel and the host state's central government.  The second is that, at least to some degree, both the Americans and the executive of the host-state have a preference for US troops going to the areas with the greatest amount of need.  We thus derive the following hypothesis:     
+
+\begin{hyp}
+Within a country, US troops will be more likely to be deployed to poorer subnational units.
+\end{hyp}
+
+
+
+%%NOTE: Here I'm not sure which way we want to go.  Does the executive reward the winning coalition (i.e., give aid to districts that vote for the party) or try to win over opposition voters (i.e., give aid to areas that did not vote for him/her in the previous election?).  I think we have to pick one or risk having a non-falsifiable theory.  I think i'm leaning towards the first option, since aid that goes to areas controlled by the opposition might allow the opposition to take credit for it.  Thoughts? CM.
+
+%%this is general on purpose, we might want to think about how we define saliency at the sub-national level.CM. 
+
+%I'm commenting this out for now. My guess is that we will put this in the second paper we write about this. 
+%\begin{hyp}
+%Within a country, US troops will be more likely to be deployed to sub-national units that are more salient to the host-state's executive.
+%\end{hyp}
+
+
+
+\subsection{Subnational Effects of US Troop Deployments}
+If development-oriented deployments actually serve the intended purpose of promoting developing then we should see increased levels of development in the subnational units that have hosted the US troops. These deployments involve the construction of new schools, classrooms, clinics, latrines, and a wide variety of other projects that directly affect education and the host-state's ability to provide medical care in a particular area.  The projects are also chosen in consultation with local authorities and community leaders (such as mayors, teachers, and local ministry representatives) to determine local needs and how best to fulfill them \cite{CPT20160309}.  
+
+Given that US military personnel work with members of the host-state military, it follows that best practices in various areas, such as construction, can diffuse to the host-state \cite{SFC20160226}. Providing veterinary care to thousands of livestock in areas that rely on animal husbandry also has the potential to directly increase incomes by ensuring that vital resources survive to make it to market, or by increasing the pool of livestock. This effect should take place through the direct benefit of building development-oriented infrastructure, as well as through the training that the US troops provide for locals.  US personnel do not always work with locals in these projects. However, they frequently involve local military or police forces.  In fact, one interview subject suggested that participation from host state personnel sent the message that it is local troops providing a service for the population, with assistance from U.S. troops \cite{CPT20160309}.
+
+\begin{hyp}
+Subnational units that receive a US development-oriented deployment will have greater developmental outcomes than those that do not host troops.
+\end{hyp}
+
+%I'm going to comment this out for now.  I think the political stuff is a separate paper (and we need more complete data for it
+%Lastly, if the host-state's leader is using the deployments are a way to reinforce his/her support among the winning coalition, we should expect support for the leader to be higher in areas that have received development-oriented deployments. 
+% 
+%Maybe this is me going rogue, but I kind of like the idea of testing for this...CM
+%\begin{hyp}
+%Subnational units that receive a US development-oriented deployment will be more likely to support the government than those that do not host troops.
+%\end{hyp}
+
+
+\section{Research Design}
+
+Our research design consists of two stages. First we will address the national-level determinants of US military deployments. Second, we detail our research design as it pertains to the subnational allocation of US military personnel. 
+
+\subsection{Country--Level Models}
+Our first set of models predict which countries receive development--oriented deployments through Beyond the Horizon, New Horizons, or Continuing Promise. Our unit of analysis in this first set of models is the country--year with observations running from 2002--2012. The dependent variable in these models is a dichotomous indicator coded ``1'' if a country receives a deployment in a given year and ``0'' if the country did not. 
+
+As we discuss above, there may be a mixture of motives that drive the US to make these deployments. We consider a range of indicators designed to capture four concepts: need, US interests, host-state preferences, and relations with the US. We use a measure of GDP per capita as an indicator of need, and consequently expect poorer states to be more likely to receive deployments than wealthier states. We also include infant mortality rates as another indicator of need, as it more directly captures the need for social welfare programs and medical aid. We also include a variable measuring the percentage of the population living in rural areas. Larger rural populations may be more difficult for governments to reach, and may therefore have greater need of assistance in healthcare and infrastructural development. Lastly, we include a variable of the number of people enrolled in primary education as a percentage of the total primary education-eligible population. These indicators all come from the World Bank's World Development Indicators \cite{WDI2015}.
+
+We include a number of variables to control for US interests. First, we include a variable to control for US economic interests in Latin American countries. We include a variable measuring each country's imports from the US. Previous research has indicated that US policymakers us aid to promote US exports, in particular \cite{FleckKilby2006,MilnerTingley2010}. We obtained these trade variables from the US Census Bureau \cite{Census2015}. Information on development-oriented deployments from SOUTHCOM repeatedly emphasizes the role of need in the selection of states, so it is possible that the ability to promote more selfish interests are somewhat limited. To address this possibility we interaction imports from the US with GDP per capita.\footnote{GDP per capita and the trade variable are both positively skewed. We measure these variables as follows to address this issue: $ln(x+1)$.} 
+
+It is also possible that the US uses these deployments to reward states for similar domestic or foreign policies. We include a measure of states' democracy, using the 21--point Polity indicator of regime type (v.2014) \cite{MarshallJaggersGurr2011}. We expect the US to be more likely to send deployments to more democratic states as opposed to less democratic states. We also include a measure of UN voting similarity, using Affinity scores from \citeasnoun{Bailey2015}. Some states within Central and South America have historically had more conflictual relations with the US, which we expect to be captured in part by UN voting patterns.  We also include a dichotomous indicator that captures a country's contributions to the US Iraq War coalition. This variable is coded as ``1'' if a country sent troops to contribute to the coalition and ``0'' otherwise \cite{Carney2011}. Lastly, we control for whether or not a country is a member of the Bolivarian Alliance for the Americas (ALBA). ALBA was created, in part, to oppose US dominance of Latin America and to provide an alternative to a US-led economic regime for Latin American states. This variable is coded ``1'' to indicate that a country is a member of ALBA and ``0'' otherwise. We expect this variable to correlate negatively with the probability that a country receives a deployment.\footnote{ALBA members include Cuba, 2004--2014; Dominica, 2008--2014; Grenada, 2014; St. Lucia, 2013--2014; St. Vincent and the Grenadines, 2009--2014; Antigua and Barbuda, 2009--2014; St. Kitts and Nevis, 2014; Honduras, 2008--2009; Nicaragua, 2007--2014; Venezuela, 2004--2014; Ecuador, 2009--2014; Bolivia, 2006--2014.}
+% Got this listing from Wikipedia. I suppose this is fine, but I've not cited it yet. There's another source from a CFR fellow, but doesn't provide such a detailed list on membership dates. 
+
+Because deployments are planned 18--20 months ahead of the actual deployment \cite{CPT20160309}, we lag the independent variables by two years.\footnote{Note that our results hold up equally well using a one-year lag.}
+
+
+\subsection{Subnational Deployments}
+
+Our second and third sets of models analyze the effect that development-oriented U.S. deployments have on developmental indicators at the subnational level, as well as the determinants of deployment allocation within a state.  Ideally we would like to look at every state that has had a Beyond the Horizon, New Horizons, or Continuing Promise deployment sent to it.  This being a preliminary study, we begin by looking at the case of Peru.  We choose to study Peru in part because of data completeness (Peru's government provides subnational data on several human development indicators) and because Peru has hosted six development-oriented deployments, spread out between five regions (Cusco, La Libertad, Lima, Piura, and Ica) between the years of 2007 and 2012\footnote{Peru has 24 regions or departments, one constitutional province, and the capital city of Lima (not to be confused with the region of Lima), which is considered a metropolitan province.}. Our unit of analysis in this set of models is the region-year, with observations running between 2001 and 2012.  
+
+When we study the effect of troops, our dependent variable is the level of economic development of the region.  The most obvious way to conceptualize it would be Gross Value Added (GVA), which is the measure of the value of the goods and services produced in a subnational area and is thus the subnational equivalent of Gross Domestic Product (GDP).  Unfortunately, we were unable to locate GVA figures for Peru past 2011.  Given this limitation, we turn to three different indicators of human development.  The often-used UN Human Development Index includes three components: Long healthy life (measured through a life expectancy index), knowledge (an education index), and a decent standard of living (GNI per capita) \cite{}.  Given that we cannot measure per capita income in the regions with a measure of GVA, we rely instead on health and education indicators.
+
+We use three dependent variables in separate models that cover both the health and education components of human development: education, health, and vaccinations. Our data come from the \textit{Instituto Nacional de Estadística e Informática} (INEI) of Peru. The data include information from INEI's micro-database as well as census information from national economic censuses and population and livelihood censuses. 
+
+To capture our first dependent variable, education, we use illiteracy rates from each region, which are measured by the percentage of the population that is over the age of 15 and considered illiterate. We use two indicators to evaluate health, our second dependent variable. The first indicator is regional infant mortality rate, which is measured as the number of infant deaths per every 1,000 live births. The second indicator we employ as an alternative measure of health is the percentage of vaccinated children under the age of one. Across these three variables, we use the change in value as an alternate dependent variable in a second set of models. 
+
+The main independent variable in these models is the number of development-oriented deployments that a region received in a given year\footnote{As a robustness check we also repeated the analysis with a dichotomous indicator coded ``1'' if the region received one or more deployments in a given year and zero otherwise.  Results, which are included in the Appendix, remained similar.}  We lag this measure by one year, as we expect that it would take some time to observe the effects of a development-oriented deployment. We should note that we are in the process of obtaining figures on the actual number of soldiers deployed to each region in a given year in order to add nuance to our measure.  The number of deployments is also used as an independent variable when predicting where deployments will go within the state. 
+
+We control for a variety of factors that we believe could also affect human development.  Data is of course more difficult to come by at the subnational level, but we include measures of the total population of the region as well as the ratio of urban to total population, as we expect that regions with a larger urban population will be more likely to have higher levels of human development.  We also include as a control variable the population growth rate, as rapidly growing regions may be more prone to falling behind on human development.  Finally, we include a dichotomous measure that is coded ``1'' if a region is landlocked and ``0'' otherwise.  We include this measure because, at the state level, landlocked can be a good predictor of developmental levels, with landlocked states generally being less economically prosperous than ones with access to a coast. 
+
+
+
+%Note: At some point mention that Peru does not have a federal government
+
+\begin{figure}[t]
+\begin{center}
+\includegraphics[scale=0.6]{../Figures/Map of Peru Deployments.pdf}
+\caption{Map showing number of deployments to regional administrative units in Peru, 2002--2012.}
+\label{fig:mapperu}
+\end{center}
+\end{figure}
+
+
+\section{Models and Estimation}
+
+Herein we review the results of our models. We begin with a discussion of the country--year models. 
+
+
+\subsection{Country--Year Models}
+
+
+
+\begin{table}[t]
+     \caption{Predicting Deployment for Country--Year, 2002--2012.}
+     \label{tab:cymodels}
+     \centering\scalebox{.75}{\input{../Tables/Table_CYModels_20160224.tex}}
+\end{table}
+
+Table \ref{tab:cymodels} shows the results of our four country-year models. Model 1 provides a basic specification using GDP per capita, imports from the US, infant mortality rates, Polity, ALBA membership, and Iraq Coalition contributions. Model 2 adds the UN voting variable, Model 3 adds the rural population and educational enrollment variables, and Model 4 adds the interaction term. We remove the rural population and education variables from Model 4 because they so dramatically reduce the sample size.
+
+In models 1 and 3 we find a negative and significant coefficient on the GDP per capita variable, indicating that wealthier countries are less likely to receive a development-oriented deployment. This is in line with Hypothesis 1 which suggests that need should be partly driving the decision over which countries receive deployments. 
+
+We also find a consistent positive coefficient on the US exports variable. This finding is in line with our hypothesis on the self-interested motivations that may be driving deployment decisions. Plainly, countries that buy more goods from the US are more likely to receive a deployment.
+
+\begin{figure}[t]
+\begin{center}
+\includegraphics[scale=1.6]{../Figures/ME_trade_income.pdf}
+\caption{Marginal effects of imports from US (Panel A) and GDP per capita (B) on the probability that a state receives a development-oriented deployment. Predictions generated from Model 4 in Table 1. 95\% confidence intervals shown.}
+\label{fig:meCY}
+\end{center}
+\end{figure}
+
+Figure \ref{fig:meCY} shows the marginal effects of imports from the US as conditioned by GDP per capita (panel A), and the marginal effect of GDP per capita as conditioned by imports from the US (panel B). In panel A we find a positive effect for imports from the US at low income levels. Rather, states that import more goods from the US have a higher probability of receiving a deployment, but only when they are relatively poor states. As national income increases this positive effect diminishes in magnitude, eventually become statistically insignificant. Similarly we can see that national income does not have a statistically significant effect at low levels of US imports, but for states that consume a higher volume of US goods, increasing national income lowers the probability that a state receives a deployment. Overall we take this to suggest that the US has a preference for less developed states, but primarily those states that consume larger quantities of US goods. Higher income lowers the probability of receiving a deployment, but only for those states that already purchase more US goods. Overall these findings confirm the idea that strategic interests and need both matter in determining who receives deployments.
+
+None of the other variables used in the model attain statistical significance in any of the model specifications. Some of this could be due to the lack of observations on some of the key variables included in model 3. However, other variables that typically yield significance, such as Polity and UN voting, do not yield significance even in models with more observations. However, when we use a one-year lag rather than a two-year lag we do observe significance in the expected directions on some of these additional variables. UN voting similarity, the percentage of the population living in rural areas, and infant mortality rate, all yield positive and statistically significant coefficients in at least one model. However, these results are generally not consistent across model specifications. We lost approximately 20 observations using the two-year, reflecting the loss of 2014 from our estimation sample. This indicates the results on these other variables are somewhat sensitive to model specification and temporal variation in the sample. Using year fixed effects leads to a substantial reduction in our sample size, but our results do hold up for the GDP per capita and US imports variables, though the other variables continue to be highly sensitive to model specification.
+
+In the following section we turn to predicting which subnational units receive US military deployments.
+
+
+
+\subsection{Subnational Models}
+
+At the subnational level, we begin by testing hypothesis 5, which states that within a host country (in this case Peru), subnational units that are less developed, those with the highest level of need, will be the most likely to received a U.S. development oriented deployment.  In Table 2 we present the results of several region-year regression models in which the dependent variable is the number of U.S. troop deployments to a region in a year. In all of the models we include lagged (by two years\footnote{We choose a two year lag because our interviews suggest that planning for a deployment, and the selection of the subnational unit it will be assigned to, begins 18-20 months in advance \cite{CPT20160309}}) values of structural variables that we would expect to affect the selection of a region.  Our interviews suggest that larger regions are more likely to receive a deployment, so we include a total population variable.  In addition, the interviews also suggest that regions with lower levels of development are also more likely to receive a deployment, so we include as various indicators of development, such as total population, rural population, and population growth. In addition, in the first three models we include one year lags of our measures of human development (illiteracy, infant vaccination, and infant mortality rates, respectively) as independent variables.  We include each one in a separate model to increase our number of observations, since there are years that have information for one variable, but not the others. In addition, in Model 4 we include measures of all three development indicators as independent variables. 
+
+\begin{table}[htbp]\centering
+\def\sym#1{\ifmmode^{#1}\else\(^{#1}\)\fi}
+\caption{Predicting Deployment for Region Year in Peru, 2002-2013}
+\begin{tabular}{l*{4}{c}}
+\hline\hline
+                    &\multicolumn{1}{c}{(1)}&\multicolumn{1}{c}{(2)}&\multicolumn{1}{c}{(3)}&\multicolumn{1}{c}{(4)}\\
+                    &\multicolumn{1}{c}{est1}&\multicolumn{1}{c}{est2}&\multicolumn{1}{c}{est3}&\multicolumn{1}{c}{est4}\\
+\hline
+L2.Urban Population Ratio&      0.0955   &      0.0662*  &       0.131   &       0.189   \\
+                    &    (0.0635)   &    (0.0383)   &     (0.113)   &     (0.144)   \\
+[1em]
+L2.Illiteracy       &    -0.00130   &               &               &     0.00333   \\
+                    &   (0.00167)   &               &               &   (0.00297)   \\
+[1em]
+L2.Total Population &   -3.95e-09   &   -2.21e-09   &   -5.75e-09   &   -7.76e-09   \\
+                    &  (3.40e-09)   &  (1.89e-09)   &  (6.89e-09)   &  (1.07e-08)   \\
+[1em]
+L2.Population Growth&     -0.0233   &     -0.0114   &     -0.0227   &     -0.0712   \\
+                    &    (0.0167)   &   (0.00929)   &    (0.0166)   &    (0.0515)   \\
+[1em]
+L2.Infant Vaccination&               &    0.000159   &               &     0.00235   \\
+                    &               &  (0.000623)   &               &   (0.00173)   \\
+[1em]
+L2.Infant Mortality &               &               &    -0.00105   &    -0.00207   \\
+                    &               &               &  (0.000899)   &   (0.00278)   \\
+[1em]
+Constant            &     0.00179   &     -0.0273   &     0.00276   &      -0.204   \\
+                    &    (0.0365)   &    (0.0575)   &    (0.0156)   &     (0.166)   \\
+\hline
+Observations        &         289   &         415   &         142   &          96   \\
+r2                  &      0.0147   &     0.00995   &      0.0274   &      0.0471   \\
+\hline\hline
+\multicolumn{5}{l}{\footnotesize Standard errors in parentheses}\\
+\multicolumn{5}{l}{\footnotesize * p<.10, ** p<.05, *** p<.01}\\
+\end{tabular}
+\end{table}
+
+
+As we can see from Table 2, none of the independent variables, neither the structural ones nor the human development indicators, achieve statistical significance\footnote{As a robustness check we repeated the analysis using a dichotomous dependent variable.  The results are included in the Appendix. Though some variables achieved statistical significance, they did not do so consistently across models.  We are thus reluctant to draw conclusions from these results.}. This suggests that we need to consider other factors that may be driving the allocation of US deployments within host states.   In our discussion section we expand on the effect that political factors (at the host state level) may be having on the allocation of deployments.  We discuss how this will be the focus of future work that we will do as part of this project.  
+
+At this point we turn to testing Hypothesis 6, which states that subnational units that receive a US development-oriented deployment will have greater developmental outcomes than those that do not host troops.  In Table 3 we present the results of three regression models in which we use illiteracy (Model 1), Infant Mortality (Model 2), and Infant Vaccination Rate (Model 3) as independent variables.  We again include total population, urban population, population growth, and landlock as control variables.  
+
+\begin{table}[htbp]\centering
+\def\sym#1{\ifmmode^{#1}\else\(^{#1}\)\fi}
+\caption{The Effect of US Troops on Development Outcomes in Peruvian Regions}
+\begin{tabular}{l*{3}{c}}
+\hline\hline
+                    &\multicolumn{1}{c}{(1)}&\multicolumn{1}{c}{(2)}&\multicolumn{1}{c}{(3)}\\
+                    &\multicolumn{1}{c}{Illiteracy}&\multicolumn{1}{c}{Infant Mortality}&\multicolumn{1}{c}{Infant Vaccination}\\
+\hline
+Total Population    &   -2.16e-08   &-0.000000290   & -0.00000108***\\
+                    &(0.000000109)   &(0.00000104)   &(0.000000292)   \\
+[1em]
+Urban Population Ratio&      -9.061***&      -12.95   &       10.45** \\
+                    &     (1.983)   &     (9.439)   &     (4.051)   \\
+[1em]
+Population Growth   &      -4.758***&       1.775   &       6.388***\\
+                    &     (0.483)   &     (2.285)   &     (1.286)   \\
+[1em]
+Landlock            &           0   &           0   &           0   \\
+                    &         (0)   &         (0)   &         (0)   \\
+[1em]
+L.Development-Oriented Deployments&      -2.793***&      -7.971** &       6.471*  \\
+                    &     (0.714)   &     (3.793)   &     (3.447)   \\
+[1em]
+Constant            &       22.68***&       36.22***&       78.57***\\
+                    &     (1.213)   &     (4.829)   &     (2.766)   \\
+\hline
+Observations        &         289   &         119   &         391   \\
+r2                  &       0.347   &      0.0452   &       0.136   \\
+\hline\hline
+\multicolumn{4}{l}{\footnotesize Standard errors in parentheses}\\
+\multicolumn{4}{l}{\footnotesize * p<.10, ** p<.05, *** p<.01}\\
+\end{tabular}
+\end{table}
+
+
+\begin{table}[htbp]\centering
+\def\sym#1{\ifmmode^{#1}\else\(^{#1}\)\fi}
+\caption{The Effect of US Troops on Change in Development Outcomes in Peruvian Regions}
+\begin{tabular}{l*{3}{c}}
+\hline\hline
+                    &\multicolumn{1}{c}{(1)}&\multicolumn{1}{c}{(2)}&\multicolumn{1}{c}{(3)}\\
+                    &\multicolumn{1}{c}{D.Illiteracy}&\multicolumn{1}{c}{D.Infant Mortality}&\multicolumn{1}{c}{D.Infant Vaccination}\\
+\hline
+Total Population    &    7.16e-09   &   -6.15e-08   &   -4.44e-08   \\
+                    &  (3.25e-08)   &(0.000000287)   &(0.000000297)   \\
+[1em]
+Urban Population Ratio&       0.440   &       5.615   &       2.514   \\
+                    &     (0.510)   &     (4.916)   &     (2.523)   \\
+[1em]
+Population Growth   &       0.350** &       0.114   &       0.174   \\
+                    &     (0.141)   &     (1.541)   &     (1.294)   \\
+[1em]
+Landlock            &           0   &           0   &           0   \\
+                    &         (0)   &         (0)   &         (0)   \\
+[1em]
+L.Development-Oriented Deployments&      -0.475*  &      -0.448   &       7.480***\\
+                    &     (0.280)   &     (0.943)   &     (2.662)   \\
+[1em]
+Constant            &      -1.179***&      -5.175** &      -2.373   \\
+                    &     (0.376)   &     (2.415)   &     (1.931)   \\
+\hline
+Observations        &         265   &          72   &         391   \\
+r2                  &      0.0279   &      0.0309   &     0.00713   \\
+\hline\hline
+\multicolumn{4}{l}{\footnotesize Standard errors in parentheses}\\
+\multicolumn{4}{l}{\footnotesize * p<.10, ** p<.05, *** p<.01}\\
+\end{tabular}
+\end{table}
+
+In all three models the deployment variable achieves statistical significance (at the .05 level in Models 1 and 2 and at the .1 level in Model 3) in the expected direction (negative in the case of illiteracy and infant mortality rates and positive and in the case of infant vaccination rates).  This provides support for Hypothesis 6, which states that these development-oriented deployments will lead to increased development outcomes.  
+
+
+
+
+\begin{figure}[t]
+\begin{center}
+\includegraphics[scale=0.9]{../Figures/IlliteracyPeru.pdf}
+\caption{Marginal Effects of US Troop Deployments on Illiteracy Rates in Peruvian Regions.}
+\label{fig:scatterplot}
+\end{center}
+\end{figure}
+
+\begin{figure}[t]
+\begin{center}
+\includegraphics[scale=0.9]{../Figures/MortInfPeru.pdf}
+\caption{Marginal Effects of US Troop Deployments on Infant Mortality Rates in Peruvian Regions.}
+\label{fig:scatterplot}
+\end{center}
+\end{figure}
+
+Beyond the deployment variable, in Model 1 higher total populations and lower levels of urban population are associated with higher illiteracy rates, as expected.  Population growth is actually negatively related to illiteracy, possibly signaling that more prosperous districts are growing at a faster rate.  Similarly, in Model 3 a higher rate of population growth is associated with higher infant vaccination rates.  Across all models landlock, which we take to be a proxy for economic development, is significant. It is negative in the case of illiteracy and infant mortality and positive in the case of infant vaccination.  
+
+As a robustness check, we repeat the analysis using the change in the human development indicators from their value in the previous year as a dependent variable.  We present these results in Table 4.  Overall, we find similar results, though the deployment variable does lose statistical significance in the model in which the change in the infant mortality rate is the dependent variable.
+
+Finally, in Figures 4 and 5, we present the marginal effects of U.S. troops on the two development indicators that achieve  .05 level of statistical significance: illiteracy and infant mortality rates.
+
+
+% Given the small range of US military deployments I think we might want to just show point predictions with rbar CIs around them.
+
+
+
+\section{Discussion and Conclusions}
+
+
+
+This paper presents the theoretical foundations that will guide us in continuing this project, as well as some initial findings that help support our arguments on both the allocation of U.S. development-oriented deployments and the effect of these deployments on human development indicators at the regional level in the host state.
+
+We find that less developed states within the target region of Central and South America are indeed more likely to receive a U.S. development-oriented deployment, reflecting the allocation of aid based on need-based criteria.  At the same time, political factors also play a role in the allocation of this form of aid. In particular, commercial interests play a role in the allocation of development-oriented deployments, with states that import more from the U.S. (as well as states that support the U.S.'s foreign policy) being more likely to receive a deployment.  These two effects also seem to work together, as the marginal effect of imports is greater for states with lower GDPs.  This implies that the U.S. favors granting deployments to countries with greater need that also import more from the U.S.  This criterion thus satisfies both the need and self-interest aspects of foreign aid. 
+
+When it comes to the effectiveness of these deployments in improving human development, as they are intended to do, our initial analysis of the effect of troop deployments on human development indicators in Peruvian regions indicates that development-oriented U.S. troop deployments can indeed have a positive effect on development outcomes in the host state.  In the case of the Peruvian regions, we find that a development-oriented deployment can lead to decreased illiteracy and infant mortality rates, as well as increased infant vaccination rates at the subnational level. 
+
+A logical next step is to repeat this analysis including all states in the region that have received Beyond the Horizons, New Horizons, or Continuing Promise Deployments.  This will allow us to understand the subnational effect of U.S. troop deployments on development while varying the national setting of the deployments.  
+
+Another natural extension of these conclusions is to think about how it is that subnational units are selected for deployments.  Our interviews with US military personnel indicate that this decision is a joint one between the U.S. government and the host state government.  The question remains as to what characteristics make a unit more likely to be selected for a deployment.  Our theory suggests that both the U.S. and the host state will likely prioritize subnational units with greater need.  At the same time, an initial analysis in which we use human development indicators to predict deployments to Peru's subnational regions shows that it is not necessarily the regions with the lowest levels of human development that are receiving these deployments.
+
+When we analyzed the determinants of subnational allocation of U.S. development deployments, we found that subnational economic factors are not strong predictors of where US troops are deployed to within a country.  We believe that, analogously to how the determinants of U.S. deployments at the state level involve both need-based and political determinants, the host's domestic political concerns will also affect where within a state U.S. troops are deployed to.  Beyond purely humanitarian  concerns, we believe that the executive of the host country might have an interest in using foreign aid (which in this case takes the form of U.S. troops) as a way to increase his/her probability of political survival.  Thus, the executive would have an interest  in either benefiting the members of his/her winning coalition or otherwise trying to gain political support.  
+
+In future work we will argue, following the work of \citeasnoun{BDMetal2003}, that leaders will attempt to use the deployments as a form of reward for districts where they have political support.  While an argument could certainly be made for leaders preferring to send deployments to districts where they lack support as a way to gain more support in those areas, this would be a risky move, as the opposition could also take credit for the benefits that stem from the deployments. 
+
+These deployments clearly come with some benefits to the local population.  Some are direct in the sense that the population gets to benefit from the actual clinics, schools, etc that are being built there.  Beyond that, there are indirect economic benefits that the subnational unit can accrue.  For example, when the US military engages in construction projects, they bring along their own tools, but purchase all of their materials locally.  This means that local suppliers can benefit from this additional business.  In addition, the troops are allowed to patronize local businesses, such as restaurants, something that is potentially beneficial for the local economy \cite{SFC20160226}.  It will thus be important to gather political data at the subnational level.  Once we have done this, we believe that we will find that  host state leaders will choose to send the American troops to the areas that are salient to the executive. 
+
+A preliminary cut of the analysis in the case of Peru shows that the political affiliation of the Regional Governors (party identification) and whether it matches up with that of the President does not seem to be a good predictor for deployments.  One potential explanation for this lack of findings is the fact that Peru does not have a Federal system of government, but is rather more centralized. This means that regional governments have less influence than they would in a federal system and it thus may not be a major priority of the President to support regional governors who belong to his party.  In addition, we believe that in future work it will be important to account for the timing of national and regional elections.  Thus, the key point that emerges is that once we begin to study subnational decisions, we have to take into account the specific political characteristics of each host state.  This is something that we will address as we continue to develop this aspect of the project.       
+
+\end{doublespace}
+
+\clearpage
+\bibliography{bibfile}
+
+
+
+
+%
+%
+\clearpage
+%
+%
+%
+\appendix
+\section*{Appendix} 
+\setcounter{table}{0}
+\renewcommand{\thetable}{A\arabic{table}}
+\setcounter{figure}{0}
+\renewcommand{\thefigure}{A\arabic{figure}}
+%
+\listoftables
+\listoffigures
+%
+%
+
+\begin{table}[htbp]\centering
+\def\sym#1{\ifmmode^{#1}\else\(^{#1}\)\fi}
+\caption{The Effect of US Troops on Development Outcomes in Peruvian Regions, Dummy DV}
+\begin{tabular}{l*{3}{c}}
+\hline\hline
+                    &\multicolumn{1}{c}{(1)}&\multicolumn{1}{c}{(2)}&\multicolumn{1}{c}{(3)}\\
+                    &\multicolumn{1}{c}{Illiteracy}&\multicolumn{1}{c}{Infant Mortality}&\multicolumn{1}{c}{Infant Vaccination}\\
+\hline
+Total Population    &   -2.16e-08   &-0.000000290   & -0.00000108***\\
+                    &(0.000000109)   &(0.00000104)   &(0.000000292)   \\
+[1em]
+Urban Population Ratio&      -9.061***&      -12.95   &       10.45** \\
+                    &     (1.983)   &     (9.439)   &     (4.051)   \\
+[1em]
+Population Growth   &      -4.758***&       1.775   &       6.388***\\
+                    &     (0.483)   &     (2.285)   &     (1.286)   \\
+[1em]
+Landlock            &           0   &           0   &           0   \\
+                    &         (0)   &         (0)   &         (0)   \\
+[1em]
+L.Dummy Development-Oriented Deployments&      -2.793***&      -7.971** &       6.471*  \\
+                    &     (0.714)   &     (3.793)   &     (3.447)   \\
+[1em]
+Constant            &       22.68***&       36.22***&       78.57***\\
+                    &     (1.213)   &     (4.829)   &     (2.766)   \\
+\hline
+Observations        &         289   &         119   &         391   \\
+r2                  &       0.347   &      0.0452   &       0.136   \\
+\hline\hline
+\multicolumn{4}{l}{\footnotesize Standard errors in parentheses}\\
+\multicolumn{4}{l}{\footnotesize * p<.10, ** p<.05, *** p<.01}\\
+\end{tabular}
+\end{table}
+
+\begin{table}[htbp]\centering
+\def\sym#1{\ifmmode^{#1}\else\(^{#1}\)\fi}
+\caption{Predicting Deployment (Dichotomous) for Region Year in Peru, 2002-2013}
+\begin{tabular}{l*{4}{c}}
+\hline\hline
+                    &\multicolumn{1}{c}{(1)}&\multicolumn{1}{c}{(2)}&\multicolumn{1}{c}{(3)}&\multicolumn{1}{c}{(4)}\\
+                    &\multicolumn{1}{c}{est1}&\multicolumn{1}{c}{est2}&\multicolumn{1}{c}{est3}&\multicolumn{1}{c}{est4}\\
+\hline
+L2.Urban Population Ratio&       2.116   &       2.335** &       6.437***&       9.428   \\
+                    &     (1.295)   &     (0.959)   &     (2.320)   &     (5.741)   \\
+[1em]
+L2.Illiteracy       &     -0.0248   &               &               &      0.0595   \\
+                    &    (0.0330)   &               &               &     (0.319)   \\
+[1em]
+L2.Total Population &   -4.83e-08   &   -4.92e-08   &   -5.94e-08   & 0.000000246   \\
+                    &  (4.05e-08)   &  (4.52e-08)   &(0.000000118)   &(0.000000285)   \\
+[1em]
+L2.Population Growth&      -0.581   &      -0.452   &      -3.169***&      -5.841*  \\
+                    &     (0.560)   &     (0.365)   &     (0.728)   &     (3.269)   \\
+[1em]
+L2.Infant Vaccination&               &    -0.00983   &               &       0.133** \\
+                    &               &    (0.0196)   &               &    (0.0596)   \\
+[1em]
+L2.Infant Mortality &               &               &     -0.0418*  &     0.00228   \\
+                    &               &               &    (0.0230)   &    (0.0652)   \\
+[1em]
+Constant            &      -2.722***&      -2.479   &      -2.861** &      -17.75** \\
+                    &     (0.906)   &     (1.591)   &     (1.152)   &     (8.302)   \\
+\hline
+Observations        &         289   &         415   &         142   &          96   \\
+r2                  &               &               &               &               \\
+\hline\hline
+\multicolumn{5}{l}{\footnotesize Standard errors in parentheses}\\
+\multicolumn{5}{l}{\footnotesize * p<.10, ** p<.05, *** p<.01}\\
+\end{tabular}
+\end{table}
+
+\end{document}
+

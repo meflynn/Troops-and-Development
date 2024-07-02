@@ -1,0 +1,37 @@
+{
+\def\sym#1{\ifmmode^{#1}\else\(^{#1}\)\fi}
+\begin{tabular}{l*{4}{c}}
+\hline\hline
+                &\multicolumn{1}{c}{(1)}         &\multicolumn{1}{c}{(2)}         &\multicolumn{1}{c}{(3)}         &\multicolumn{1}{c}{(4)}         \\
+\hline
+F2.intervention &                  &                  &                  &                  \\
+ln(GDP Per Capita)&   -0.484\sym{**} &   -0.485\sym{*}  &    0.086         &    2.959\sym{**} \\
+                &  (0.242)         &  (0.248)         &  (0.478)         &  (1.151)         \\
+ln(Imports from US)&    0.318\sym{**} &    0.318\sym{**} &    0.420\sym{*}  &    3.918\sym{***}\\
+                &  (0.133)         &  (0.136)         &  (0.239)         &  (1.211)         \\
+ln(GDP Per Capita) $\times$ ln(Imports from US)&                  &                  &                  &   -0.442\sym{***}\\
+                &                  &                  &                  &  (0.147)         \\
+Infant Mortality Rate&    0.004         &    0.004         &    0.012         &    0.019         \\
+                &  (0.014)         &  (0.014)         &  (0.026)         &  (0.014)         \\
+Rural Population&                  &                  &    0.004         &                  \\
+                &                  &                  &  (0.011)         &                  \\
+Educational Enrollment&                  &                  &   -0.015         &                  \\
+                &                  &                  &  (0.015)         &                  \\
+Polity          &    0.102         &    0.102         &   -0.015         &    0.110         \\
+                &  (0.072)         &  (0.072)         &  (0.091)         &  (0.076)         \\
+ALBA Member     &   -0.013         &   -0.014         &    0.000         &    0.142         \\
+                &  (0.345)         &  (0.354)         &      (.)         &  (0.364)         \\
+Iraq Coalition  &    0.214         &    0.214         &    0.378         &    0.103         \\
+                &  (0.462)         &  (0.461)         &  (0.580)         &  (0.484)         \\
+UN Voting       &                  &   -0.011         &   -0.172         &    0.079         \\
+                &                  &  (0.651)         &  (0.963)         &  (0.718)         \\
+Constant        &   -0.787         &   -0.791         &   -4.481         &  -29.061\sym{***}\\
+                &  (1.925)         &  (1.901)         &  (2.930)         &  (9.287)         \\
+\hline
+Prob $ > \chi^2$&    0.319         &    0.403         &    0.244         &    0.014         \\
+Observations    &      276         &      276         &      111         &      276         \\
+\hline\hline
+\multicolumn{5}{l}{\footnotesize Robust standard errors in parentheses. Two-tailed significance tests used.}\\
+\multicolumn{5}{l}{\footnotesize $*$ p$\leq$ 0.10; $**$ p$\leq$ 0.05; $***$ p$\leq$0.01}\\
+\end{tabular}
+}

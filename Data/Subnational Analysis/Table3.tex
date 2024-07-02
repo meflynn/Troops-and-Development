@@ -1,0 +1,36 @@
+\begin{table}[htbp]\centering
+\def\sym#1{\ifmmode^{#1}\else\(^{#1}\)\fi}
+\caption{Predicting Deployment for Region Year in Peru, 2002-2013}
+\begin{tabular}{l*{4}{c}}
+\hline\hline
+                    &\multicolumn{1}{c}{(1)}&\multicolumn{1}{c}{(2)}&\multicolumn{1}{c}{(3)}&\multicolumn{1}{c}{(4)}\\
+                    &\multicolumn{1}{c}{est1}&\multicolumn{1}{c}{est2}&\multicolumn{1}{c}{est3}&\multicolumn{1}{c}{est4}\\
+\hline
+L2.Urban Population Ratio&      0.0955   &      0.0662*  &       0.131   &       0.189   \\
+                    &    (0.0635)   &    (0.0383)   &     (0.113)   &     (0.144)   \\
+[1em]
+L2.Illiteracy       &    -0.00130   &               &               &     0.00333   \\
+                    &   (0.00167)   &               &               &   (0.00297)   \\
+[1em]
+L2.Total Population &   -3.95e-09   &   -2.21e-09   &   -5.75e-09   &   -7.76e-09   \\
+                    &  (3.40e-09)   &  (1.89e-09)   &  (6.89e-09)   &  (1.07e-08)   \\
+[1em]
+L2.Population Growth&     -0.0233   &     -0.0114   &     -0.0227   &     -0.0712   \\
+                    &    (0.0167)   &   (0.00929)   &    (0.0166)   &    (0.0515)   \\
+[1em]
+L2.Infant Vaccination&               &    0.000159   &               &     0.00235   \\
+                    &               &  (0.000623)   &               &   (0.00173)   \\
+[1em]
+L2.Infant Mortality &               &               &    -0.00105   &    -0.00207   \\
+                    &               &               &  (0.000899)   &   (0.00278)   \\
+[1em]
+Constant            &     0.00179   &     -0.0273   &     0.00276   &      -0.204   \\
+                    &    (0.0365)   &    (0.0575)   &    (0.0156)   &     (0.166)   \\
+\hline
+Observations        &         289   &         415   &         142   &          96   \\
+r2                  &      0.0147   &     0.00995   &      0.0274   &      0.0471   \\
+\hline\hline
+\multicolumn{5}{l}{\footnotesize Standard errors in parentheses}\\
+\multicolumn{5}{l}{\footnotesize * p<.10, ** p<.05, *** p<.01}\\
+\end{tabular}
+\end{table}
