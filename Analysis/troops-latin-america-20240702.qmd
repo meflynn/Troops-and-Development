@@ -1,0 +1,2348 @@
+---
+title: "Analysis for Troops and Development Projects in Latin America"
+format:
+  html:
+    highlight: tango
+    theme: spacelab
+    toc: true
+    toc_float: true
+    toc_collapsed: true
+    code_folding: show
+    number_sections: true
+    fig_width: 6
+    fig_height: 4
+    fig_caption: true
+    dpi: 400
+    df_print: paged
+    keep_md: true
+    self_contained: false
+editor_options: 
+  chunk_output_type: console
+---
+
+## Setup 
+
+```{r setup}
+#remotes::install_github("vdeminstitute/vdemdata")
+
+library(tidyverse)
+library(countrycode)
+library(brms)
+library(projpred)
+library(ggdist)
+library(tidybayes)
+library(ggdist)
+library(ggrepel)
+library(ggtext)
+library(peacesciencer)
+library(troopdata)
+library(modelsummary)
+library(tinytable)
+library(kableExtra)
+library(rnaturalearth)
+library(flynnprojects)
+#library(vdemdata)
+library(stringr)
+library(here)
+library(marginaleffects)
+library(lme4)
+library(scales)
+library(CoordinateCleaner)
+library(patchwork)
+
+sysfonts::font_add_google("Oswald", "oswald")
+showtext::showtext_auto()
+showtext::showtext_opts(dpi = 400)
+
+```
+
+
+
+
+
+# Create Data Set for Analysis
+
+```{r data-setup}
+#| echo: false
+#| message: false
+#| warning: false
+
+
+if (file.exists(here::here("Data/data-analysis-nested.csv"))) {
+  
+  # Load data files for analysis if they're already created.
+  data.analysis <- read_csv(here::here("Data/data-analysis.csv"))
+
+  data.analysis.nested <- read_csv(here::here("Data/data-analysis-nested.csv"))
+  
+  
+} else {
+
+
+# Clean exports to US IMF data
+exports.to.us <- readr::read_csv(here::here("Data/Raw Data/imf-dots/Imports_from_Counterpart_Countries.csv")) |> 
+  dplyr::rename("country" = "COUNTERPART_COUNTRY") |> 
+  dplyr::filter(!is.na(country)) |> 
+  dplyr::mutate(ccode = countrycode::countrycode(country, origin = "country.name",  destination = "cown"),
+                region = countrycode(ccode, origin = "cown", destination = "region")) |> 
+  dplyr::rename("year" = "TIME_PERIOD", "exports_to_us" = "OBS_VALUE") |> 
+  dplyr::select(country, ccode, region, year, exports_to_us) |> 
+  dplyr::group_by(country) |> 
+  dplyr::mutate(exports_to_us = as.numeric(exports_to_us)) |> 
+  dplyr::filter(year >= 2000)
+
+
+# Clean imports from US IMF data
+imports.from.us <- readr::read_csv(here::here("Data/Raw Data/imf-dots/Exports_to_Counterpart_Countries.csv")) |> 
+  dplyr::rename("country" = "COUNTERPART_COUNTRY") |> 
+  dplyr::filter(!is.na(country)) |> 
+  dplyr::mutate(ccode = countrycode::countrycode(country, origin = "country.name",  destination = "cown"),
+                region = countrycode(ccode, origin = "cown", destination = "region")) |> 
+  dplyr::rename("year" = "TIME_PERIOD", "imports_from_us" = "OBS_VALUE") |> 
+  dplyr::select(country, ccode, region, year, imports_from_us) |> 
+  dplyr::group_by(country) |> 
+  dplyr::mutate(imports_from_us = as.numeric(imports_from_us)) |> 
+  dplyr::filter(year >= 2000)
+
+
+options(digits = 3)
+# Health Data from World Bank WDI
+health.data <- readxl::read_xlsx(here::here("Data/Raw Data/P_Data_Extract_From_Health_Nutrition_and_Population_Statistics/P_Data_Extract_From_World_Development_Indicators.xlsx")) |> 
+  dplyr::filter(!is.na(`Series Code`)) |> 
+  dplyr::rename("variable" = 1, "country" = 3) |> 
+  pivot_longer(cols = c(5:29)) |> 
+  group_by(country) |> 
+  dplyr::mutate(name = as.numeric(str_extract(name, "\\d{4} ")),
+                value = case_when(
+                  grepl("\\.\\.", value) ~ NA,
+                  TRUE ~ round(as.numeric(value), 3)
+                )) |> 
+  dplyr::rename("year" = "name") |> 
+  ungroup() |> 
+  dplyr::mutate(ccode = countrycode(variable,
+                                    origin = "country.name",
+                                    destination = "cown")) |>
+  pivot_wider(id_cols = c("variable", "ccode", "year"),
+              names_from = "country",
+              values_from = "value") |>
+  dplyr::rename("country" = "variable",
+                "infant_deaths_num" = `Number of infant deaths`,
+                "infant_mortality" = `Mortality rate, infant (per 1,000 live births)`,
+                "infant_mortality_female" = `Mortality rate, infant, female (per 1,000 live births)`,
+                "infant_mortality_male" = `Mortality rate, infant, male (per 1,000 live births)`,
+                "hospital_beds_per_1000" = `Hospital beds (per 1,000 people)`,
+                "healthcare_expenditures_pc" = `Current health expenditure per capita (current US$)`,
+                "healthcare_expenditures" = `Current health expenditure (% of GDP)`,
+                "healthcare_expenditures_gov" = `Domestic general government health expenditure (% of GDP)`,
+                "healthcare_expenditures_gov_pc" = `Domestic general government health expenditure (% of current health expenditure)`,
+                "material_mortality_ratio_modeled" = `Maternal mortality ratio (modeled estimate, per 100,000 live births)`,
+                "material_mortality_ratio" = `Maternal mortality ratio (national estimate, per 100,000 live births)`,
+                "population_growth" = `Population growth (annual %)`,
+                "unemployment_rate" = `Unemployment, total (% of total labor force) (national estimate)`,
+                "trade_gdp" = `Trade (% of GDP)`,
+                "gdp_constant" = `GDP (constant 2015 US$)`,
+                ) |> 
+  dplyr::select(ccode, year, everything()) |> 
+  dplyr::filter(!is.na(ccode))
+
+
+# Health Data Addendum
+health.data.2 <- read_csv(here::here("Data/Raw Data/P_Data_Extract_From_Health_Nutrition_and_Population_Statistics/8efd2565-8927-4877-a42a-9c6ebee02db2_Data.csv")) |> 
+  dplyr::filter(!is.na(`Series Code`)) |> 
+  dplyr::rename("variable" = 1, "country" = 3) |> 
+  pivot_longer(cols = c(5:29)) |> 
+  group_by(country) |> 
+  dplyr::mutate(name = as.numeric(str_extract(name, "\\d{4} ")),
+                value = case_when(
+                  grepl("\\.\\.", value) ~ NA,
+                  TRUE ~ round(as.numeric(value), 3)
+                )) |> 
+  dplyr::rename("year" = "name") |> 
+  ungroup() |> 
+  dplyr::mutate(ccode = countrycode(country,
+                                    origin = "country.name",
+                                    destination = "cown")) |>
+  pivot_wider(id_cols = c("country", "ccode", "year"),
+              names_from = "variable",
+              values_from = "value") |> 
+  dplyr::rename("hospital_beds" = `Hospital beds (per 1,000 people)`,
+                "infant_mortality_rate" = `Mortality rate, infant (per 1,000 live births)`,
+                "infant_mortality_rate_female" = `Mortality rate, infant, female (per 1,000 live births)`,
+                "infant_mortality_rate_male" = `Mortality rate, infant, male (per 1,000 live births)`,
+                "infant_deaths_num" = `Number of infant deaths`,
+                "population_total" = `Population, total`,
+                "education_spending" = `Public spending on education, total (% of GDP)`,
+                "population_rural" = `Rural population (% of total population)`,
+                "population_urban" = `Urban population (% of total population)`
+  )
+  
+
+
+# Homicide Data
+# Rate per 100,000 people. Both sexes.
+homicide.data <- readr::read_csv(here::here("Data/WHO/homicide-data.csv")) |> 
+  dplyr::mutate(ccode = countrycode::countrycode(Location, origin = "country.name", destination = "cown"),
+                homicide_rate = FactValueNumeric,
+                year = Period) |> 
+  dplyr::filter(Dim1 == "Both sexes") |> 
+  dplyr::select(ccode, year, homicide_rate)
+
+# Iraq Contributions
+iraq.contributions <- readxl::read_xlsx(here::here("Data/Raw Data/Iraq Coalition Contributions.xlsx")) |> 
+  dplyr::mutate(ccode = countrycode::countrycode(country, origin = "country.name", destination = "cown")) |>
+  dplyr::mutate(iraq_coalition = 1,
+                beginyear = as.Date(beginyear),
+                endyear = as.Date(endyear)) |> 
+  rowwise() |> 
+  dplyr::mutate(time = list(lubridate::year(beginyear):lubridate::year(endyear))) |> 
+  tidyr::unnest(time) |> 
+  dplyr::select(country, ccode, time, iraq_coalition, dead, wounded, troopstotal, troopspeak) |>
+  dplyr::mutate(across(c(dead, wounded, troopstotal, troopspeak),
+                       ~ as.numeric(.x))) |> 
+  dplyr::rename("year" = "time")
+
+# Create ccode list for more general Iraq coalition of the willing dummy variable.
+iraq.ccode.list <- unique(iraq.contributions$ccode)
+
+# V-Dem Data
+vdem.data <- vdemdata::vdem  |> 
+  dplyr::filter(year >= 1999) |> 
+  dplyr::select(country_name, COWcode, year, v2x_polyarchy, v2x_libdem) |> 
+  dplyr::rename("ccode" = COWcode, "country" = country_name)
+
+
+#  UN Voting data
+un.data <- read_csv(here::here("Data/Raw Data/IdealpointestimatesAll_Jun2024.csv")) |> 
+  dplyr::mutate(year = session + 1945) |> 
+  dplyr::filter(year>=1999) |>
+  group_by(year) |> 
+  dplyr::mutate(US_Idealpoint = IdealPointAll[ccode==2],
+                un_distance_abs = abs(US_Idealpoint - IdealPointAll),
+                un_distance = US_Idealpoint - IdealPointAll) |> 
+  dplyr::select(year, ccode, USAgree, un_distance) 
+
+
+# BTH/NH Deployment Indicator
+deployment.indicator <- readxl::read_xlsx(here::here("Data/SOUTHCOM Data/BTH History.xlsx")) |> 
+  group_by(Country, Year) |>
+  dplyr::summarise(deployment = 1) |>
+  ungroup() |> 
+  dplyr::mutate(ccode = countrycode::countrycode(sourcevar = Country, 
+                                                 origin = "country.name", 
+                                                 destination = "cown")) |> 
+  dplyr::rename("year" = "Year")
+
+# Homicide Data
+
+
+# Centroid data for country capitals
+centroid.df <- CoordinateCleaner::countryref |> 
+  dplyr::mutate(ccode = countrycode::countrycode(sourcevar = iso3, 
+                                                  origin = "iso3c", 
+                                                  destination = "cown")) |> 
+  dplyr::filter(type == "country") |> 
+  dplyr::group_by(ccode) |> 
+  dplyr::filter(!is.na(ccode)) |> 
+  dplyr::summarise(ccode = first(ccode),
+                   capital.lon = first(capital.lon), 
+                   capital.lat = first(capital.lat)) 
+
+
+data.analysis <- peacesciencer::create_stateyears(system = "cow", subset_years = c(1998:2024)) |> 
+  dplyr::mutate(region = countrycode::countrycode(sourcevar = ccode, 
+                                                  origin = "cown", 
+                                                  destination = "region")) |> 
+  dplyr::filter(region == "Latin America & Caribbean") |> 
+  left_join(health.data, by = c("ccode", "year")) |>
+  left_join(health.data.2, by = c("ccode", "year")) |> 
+  left_join(vdem.data, by = c("ccode", "year")) |> 
+  left_join(exports.to.us, by = c("ccode", "year")) |>
+  left_join(imports.from.us, by = c("ccode", "year")) |>
+  left_join(un.data, by = c("ccode", "year")) |>
+  left_join(deployment.indicator, by = c("ccode", "year")) |> 
+  left_join(iraq.contributions, by = c("ccode", "year")) |>
+  left_join(homicide.data, by = c("ccode", "year")) |> 
+  left_join(centroid.df, by = "ccode") |>
+  mutate(deployment = case_when(
+    is.na(deployment) ~ 0, 
+    TRUE ~ deployment),
+    alba_member = case_when(
+      str_detect(statenme, "Venezuela") & year >= 2004 ~ 1,
+      str_detect(statenme, "Cuba") & year >= 2004 ~ 1,
+      str_detect(statenme, "Nicaragua") & year >= 2007 ~ 1,
+      str_detect(statenme, "Bolivia") & year >= 2006 ~ 1,
+      str_detect(statenme, "Ecuador") & year >= 2007 & year <= 2018 ~ 1,
+      str_detect(statenme, "Honduras") & year >= 2008 & year <= 2009 ~ 1,
+      str_detect(statenme, "Dominica") & year >= 2008 ~ 1,
+      str_detect(statenme, "Antigua") & year >= 2009 ~ 1,
+      str_detect(statenme, "St. Vincent") & year >= 2009 ~ 1,
+      str_detect(statenme, "St. Kitts") & year >= 2014 ~ 1,
+      str_detect(statenme, "Grenada") & year >= 2014 ~ 1,
+      str_detect(statenme, "St. Lucia") & year >= 2013 ~ 1,
+      TRUE ~ 0
+    ),
+    gdppc = gdp_constant/population_total) |>
+  group_by(ccode) |> 
+  dplyr::mutate(deployment_cumsum = cumsum(deployment),
+                deployment_lead_1 = dplyr::lead(deployment, n = 1L),
+                deployment_lead_2 = dplyr::lead(deployment, n = 2L)) |>
+  group_by(ccode, deployment_cumsum) |> 
+  dplyr::mutate(time_since_deployment = seq_along(deployment_cumsum) - 1) |>
+  ungroup() |> 
+  dplyr::mutate(across(c(exports_to_us, imports_from_us, v2x_polyarchy, gdp_constant, gdppc, infant_mortality_rate, population_total, population_urban, education_spending, healthcare_expenditures, population_rural, un_distance, USAgree, unemployment_rate, time_since_deployment, homicide_rate), 
+                       ~arm::rescale(.x),
+                       .names = "{.col}_z"),
+                across(c(exports_to_us, imports_from_us, gdppc, gdp_constant, population_total, infant_mortality_rate),
+                       ~log(.x),
+                       .names = "log_{.col}")) |>
+  dplyr::mutate(across(c(iraq_coalition, dead, wounded, troopstotal, troopspeak),
+                       ~ case_when(
+                         is.na(.x) ~ 0,
+                         TRUE ~ .x
+                       ))) |>
+  dplyr::mutate(iraq_coalition_general = case_when(
+    ccode %in% iraq.ccode.list ~ 1,
+    TRUE ~ 0
+  )) |> 
+  dplyr::filter(ccode != 70) |> 
+  dplyr::select(!contains("country.")) |> 
+  dplyr::mutate(row_index = row_number())
+
+
+
+# Generate limited nested dataset for comparison
+
+data.analysis.nested <- data.analysis |> 
+  drop_na(deployment_lead_1, deployment_lead_2, log_gdppc, log_imports_from_us, log_population_total, population_urban, v2x_polyarchy, un_distance, alba_member, iraq_coalition, log_infant_mortality_rate, homicide_rate, education_spending, time_since_deployment) |> 
+  dplyr::mutate(row_index = row_number())
+  
+
+# Write data file for main data
+readr::write_csv(data.analysis,
+                 here::here("Data/data-analysis.csv"))
+
+
+# Write data file for nested data
+readr::write_csv(data.analysis.nested,
+                 here::here("Data/data-analysis-nested.csv"))
+
+}
+
+```
+
+# Analysis
+
+
+## Create Map of Deployment Locations
+
+```{r deployment-map}
+
+deploy.count <- data.analysis |>
+  dplyr::select(statenme, year, deployment) |> 
+  filter(year >= 1998) |> 
+  dplyr::rename("Country" = "statenme", "Year" = "year") |> 
+  group_by(Country) |>
+  dplyr::summarise(Count = sum(deployment, na.rm = TRUE)) 
+
+
+mapdata <- rnaturalearth::ne_countries(scale = "medium", returnclass = "sf") |> 
+  dplyr::filter(region_wb == "Latin America & Caribbean") |> 
+  dplyr::left_join(deploy.count, by = c("name" = "Country")) |>
+  dplyr::mutate(Count = ifelse(is.na(Count), 0, Count)) |> 
+  dplyr::filter(sovereignt != "Mexico")
+
+coastline <- rnaturalearth::ne_coastline(scale = "medium",
+                                         returnclass = "sf")
+
+mapplot <- ggplot() +
+  geom_sf(data = coastline,
+          aes(geometry = geometry),
+          linewidth = 0.1) +
+  geom_sf(data = mapdata, 
+          aes(fill = Count),
+          color = "black", size = 0.1) +
+
+  viridis::scale_fill_viridis(option = "turbo",
+                              begin = 0.05,
+                              end = 1.0,
+                              direction = 1) +
+  flynnprojects::theme_flynn_map(base_size = 11, base_family = "oswald") +
+  theme(plot.title = element_text(size = rel(1.2))) +
+  guides(fill = "none") +
+  coord_sf(xlim = c(-100, -30),
+           ylim = c(25.25, -57.3)) +
+  theme(legend.title = element_text(margin = margin(b = 8))) +
+  labs(title = "Humanitarian and Civic Assistance Deployment Locations, 1998-2025",
+       fill = "Number of\nDeployments") 
+
+ggsave(here::here("Figures/deployment_map.png"), 
+       width = 6, 
+       height = 4, 
+       dpi = 400)
+
+# Generate histogram with coloring.
+
+histplot <- ggplot(deploy.count, aes(x = Count, group = Count, fill = Count)) +
+  geom_histogram(binwidth = 1,
+                 show.legend = FALSE,
+                 linewidth = 0.1,
+                 color = "black") +
+  viridis::scale_fill_viridis(option = "turbo",
+                              begin = 0.05,
+                              end = 1.0,
+                              direction = 1) +
+  flynnprojects::theme_flynn_map(base_size = 6, base_family = "oswald") + 
+  theme(axis.text.x.bottom = element_text(),
+        axis.title.x.bottom = element_text(size = rel(1.1),
+                                           margin = margin(t = 0.2, unit = "cm"))) +
+  scale_x_continuous(breaks = seq(0,17,1)) +
+  labs(x = "Count",
+       y  = "",
+       fill = "Count")
+
+
+## Create table for top five recipients
+
+tableplot <- gt::gt(deploy.count |> 
+                                     arrange(-Count) |> 
+                                     slice(1:5)) |> 
+  gt::tab_header(title = "Top 5 Deployment Locations") |> 
+  gt::tab_options(table.font.size = 9,
+                  heading.title.font.weight = "bold",
+                  column_labels.font.weight = "bold")
+  
+  
+  
+## Combine all into single plot
+com.1 <- mapplot + 
+  inset_element(histplot,
+                left = 0.79,
+                right = 1.43,
+                bottom = 0.20,
+                top = 0.48,
+                align_to = "full",
+                on_top = FALSE) 
+
+com.2 <- com.1 + 
+  inset_element(tableplot,
+                left = 0.92,
+                right = 0.90,
+                bottom = 0.60,
+                top = 0.80,
+                align_to = "full",
+                on_top = FALSE) 
+
+ggsave(here::here("Figures/deployment_map_full.png"), 
+       width = 9,
+       height = 5, 
+       dpi = 400)
+
+
+```
+
+
+## Models
+
+
+### Full Models
+
+```{r brms-models-base-lead-1}
+#| echo: false
+#| message: false
+
+
+ITERS <- 7000
+CHAINS <- 4
+WARMUP <- ITERS/2
+CORES <- 4
+THIN <- 1
+
+PRIORS <- c(
+  prior(normal(0, 0.5), class = "b"),
+  prior(normal(0, 1), class = "Intercept")
+)
+
+
+
+model.econ.l1 <- brm(deployment_lead_1 ~ gdppc_z + imports_from_us_z + population_total_z + population_urban_z  ,
+              data = data.analysis,
+              prior = PRIORS,
+              family = bernoulli(link = "logit"),
+              chains = CHAINS,
+              iter = ITERS,
+              warmup = WARMUP,
+              cores = CORES,
+              thin = THIN,
+              backend = "cmdstanr",
+              threads = threading(2),
+              control = list(adapt_delta = 0.99,
+                             max_treedepth = 13),
+              save_model = here::here("Models/econ_model_lead_1.rds"),
+              file_refit = "on_change")
+
+
+
+model.political.l1 <- brm(deployment_lead_1 ~ v2x_polyarchy_z + un_distance_z + alba_member + iraq_coalition  ,
+              data = data.analysis,
+              prior = PRIORS,
+              family = bernoulli(link = "logit"),
+              chains = CHAINS,
+              iter = ITERS,
+              warmup = WARMUP,
+              cores = CORES,
+              thin = THIN,
+              backend = "cmdstanr",
+              threads = threading(2),
+              control = list(adapt_delta = 0.99,
+                             max_treedepth = 13),
+              save_model = here::here("Models/political_model_lead_1.rds"),
+              file_refit = "on_change")
+
+
+
+model.need.l1 <- brm(deployment_lead_1 ~ infant_mortality_rate_z + homicide_rate_z + education_spending_z + healthcare_expenditures_z  ,
+              data = data.analysis,
+              prior = PRIORS,
+              family = bernoulli(link = "logit"),
+              chains = CHAINS,
+              iter = ITERS,
+              warmup = WARMUP,
+              cores = CORES,
+              thin = THIN,
+              backend = "cmdstanr",
+              threads = threading(2),
+              control = list(adapt_delta = 0.99,
+                             max_treedepth = 13),
+              save_model = here::here("Models/need_model_lead_1.rds"),
+              file_refit = "on_change")
+
+
+model.combined.l1 <- brm(deployment_lead_1 ~ gdppc_z + imports_from_us_z + population_total_z + population_urban_z + v2x_polyarchy_z + un_distance_z + alba_member + iraq_coalition + infant_mortality_rate_z + homicide_rate_z + education_spending_z + healthcare_expenditures_z   ,
+              data = data.analysis,
+              prior = PRIORS,
+              family = bernoulli(link = "logit"),
+              chains = CHAINS,
+              iter = ITERS,
+              warmup = WARMUP,
+              cores = CORES,
+              thin = THIN,
+              backend = "cmdstanr",
+              threads = threading(2),
+              control = list(adapt_delta = 0.99,
+                             max_treedepth = 13),
+              save_model = here::here("Models/combined_model_lead_1.rds"),
+              file_refit = "on_change")
+
+
+
+# Set prior for full modeling containing varying intercepts for countries. 
+
+PRIORS <- c(
+  prior(normal(0, 0.5), class = "b"),
+  prior(normal(0, 1), class = "Intercept"),
+  prior(gamma(1,1), class = "sd", group = "statenme"),
+  prior(gamma(1,1), class = "sd", coef = "Intercept", group = "statenme"),
+  prior(gamma(1,1), class = "sds", coef = "s(year)")
+)
+
+model.full.l1 <- brm(deployment_lead_1 ~ gdppc_z + imports_from_us_z + population_total_z + population_urban_z + v2x_polyarchy_z + un_distance_z + alba_member + iraq_coalition + infant_mortality_rate_z + homicide_rate_z + education_spending_z + healthcare_expenditures_z + s(year) + (1|statenme),
+              data = data.analysis,
+              prior = PRIORS,
+              family = bernoulli(link = "logit"),
+              chains = CHAINS,
+              iter = ITERS,
+              warmup = WARMUP,
+              cores = CORES,
+              thin = THIN,
+              backend = "cmdstanr",
+              threads = threading(2),
+              control = list(adapt_delta = 0.99,
+                             max_treedepth = 13),
+              save_model = here::here("Models/full_model_lead_1.rds"),
+              file_refit = "on_change")
+
+
+```
+
+
+```{r brms-models-base-lead-2}
+#| echo: false
+#| message: false
+
+
+ITERS <- 7000
+CHAINS <- 4
+WARMUP <- ITERS/2
+CORES <- 4
+THIN <- 1
+
+PRIORS <- c(
+  prior(normal(0, 0.5), class = "b"),
+  prior(normal(0, 1), class = "Intercept")
+)
+
+
+
+model.econ.l2 <- brm(deployment_lead_2 ~ gdppc_z + imports_from_us_z + population_total_z + population_urban_z  ,
+              data = data.analysis,
+              prior = PRIORS,
+              family = bernoulli(link = "logit"),
+              chains = CHAINS,
+              iter = ITERS,
+              warmup = WARMUP,
+              cores = CORES,
+              thin = THIN,
+              backend = "cmdstanr",
+              threads = threading(2),
+              control = list(adapt_delta = 0.99,
+                             max_treedepth = 13),
+              save_model = here::here("Models/econ_model_lead_2.rds"),
+              file_refit = "on_change")
+
+
+
+model.political.l2 <- brm(deployment_lead_2 ~ v2x_polyarchy_z + un_distance_z + alba_member + iraq_coalition  ,
+              data = data.analysis,
+              prior = PRIORS,
+              family = bernoulli(link = "logit"),
+              chains = CHAINS,
+              iter = ITERS,
+              warmup = WARMUP,
+              cores = CORES,
+              thin = THIN,
+              backend = "cmdstanr",
+              threads = threading(2),
+              control = list(adapt_delta = 0.99,
+                             max_treedepth = 13),
+              save_model = here::here("Models/political_model_lead_2.rds"),
+              file_refit = "on_change")
+
+
+
+model.need.l2 <- brm(deployment_lead_2 ~ infant_mortality_rate_z + homicide_rate_z + education_spending_z + healthcare_expenditures_z  ,
+              data = data.analysis,
+              prior = PRIORS,
+              family = bernoulli(link = "logit"),
+              chains = CHAINS,
+              iter = ITERS,
+              warmup = WARMUP,
+              cores = CORES,
+              thin = THIN,
+              backend = "cmdstanr",
+              threads = threading(2),
+              control = list(adapt_delta = 0.99,
+                             max_treedepth = 13),
+              save_model = here::here("Models/need_model_lead_2.rds"),
+              file_refit = "on_change")
+
+
+model.combined.l2 <- brm(deployment_lead_2 ~ gdppc_z + imports_from_us_z + population_total_z + population_urban_z + v2x_polyarchy_z + un_distance_z + alba_member + iraq_coalition + infant_mortality_rate_z + homicide_rate_z + education_spending_z + healthcare_expenditures_z   ,
+              data = data.analysis,
+              prior = PRIORS,
+              family = bernoulli(link = "logit"),
+              chains = CHAINS,
+              iter = ITERS,
+              warmup = WARMUP,
+              cores = CORES,
+              thin = THIN,
+              backend = "cmdstanr",
+              threads = threading(2),
+              control = list(adapt_delta = 0.99,
+                             max_treedepth = 13),
+              save_model = here::here("Models/combined_model_lead_2.rds"),
+              file_refit = "on_change")
+
+
+
+# Set prior for full modeling containing varying intercepts for countries. 
+
+PRIORS <- c(
+  prior(normal(0, 0.5), class = "b"),
+  prior(normal(0, 1), class = "Intercept"),
+  prior(gamma(1,1), class = "sd", group = "statenme"),
+  prior(gamma(1,1), class = "sd", coef = "Intercept", group = "statenme"),
+  prior(gamma(1,1), class = "sds", coef = "s(year)")
+)
+
+model.full.l2 <- brm(deployment_lead_2 ~ gdppc_z + imports_from_us_z + population_total_z + population_urban_z + v2x_polyarchy_z + un_distance_z + alba_member + iraq_coalition + infant_mortality_rate_z + homicide_rate_z + education_spending_z + healthcare_expenditures_z + s(year) + (1|statenme),
+              data = data.analysis,
+              prior = PRIORS,
+              family = bernoulli(link = "logit"),
+              chains = CHAINS,
+              iter = ITERS,
+              warmup = WARMUP,
+              cores = CORES,
+              thin = THIN,
+              backend = "cmdstanr",
+              threads = threading(2),
+              control = list(adapt_delta = 0.99,
+                             max_treedepth = 13),
+              save_model = here::here("Models/full_model_lead_2.rds"),
+              file_refit = "on_change")
+
+
+```
+
+
+### Nested Models
+
+
+```{r brms-models-nested-lead-1}
+#| echo: false
+#| message: false
+
+ITERS <- 5000
+CHAINS <- 4
+WARMUP <- ITERS/2
+CORES <- 4
+THIN <- 1
+
+PRIORS <- c(
+  prior(normal(0, 0.5), class = "b"),
+  prior(normal(0, 1), class = "Intercept") #,
+  #prior(gamma(1, 3), class = "sd")
+)
+
+
+
+model.econ.nested.l1 <- brm(deployment_lead_1 ~ gdppc_z + imports_from_us_z + population_total_z + population_urban_z ,
+                            data = data.analysis.nested,
+                            prior = PRIORS,
+                            family = bernoulli(link = "logit"),
+                            chains = CHAINS,
+                            iter = ITERS,
+                            warmup = WARMUP,
+                            cores = CORES,
+                            thin = THIN,
+                            backend = "cmdstanr",
+                            threads = threading(2),
+                            control = list(adapt_delta = 0.99,
+                                           max_treedepth = 13),
+                            save_model = here::here("Models/econ_model_nested_lead_1.rds"),
+                            file_refit = "on_change")
+
+
+model.political.nested.l1 <- brm(deployment_lead_1 ~ v2x_polyarchy_z + un_distance_z + alba_member + iraq_coalition ,
+                                 data = data.analysis.nested,
+                                 prior = PRIORS,
+                                 family = bernoulli(link = "logit"),
+                                 chains = CHAINS,
+                                 iter = ITERS,
+                                 warmup = WARMUP,
+                                 cores = CORES,
+                                 thin = THIN,
+                                 backend = "cmdstanr",
+                                 threads = threading(2),
+                                 control = list(adapt_delta = 0.99,
+                                                max_treedepth = 13),
+                                 save_model = here::here("Models/political_model_nested_lead_1.rds"),
+                                 file_refit = "on_change")
+
+
+model.need.nested.l1 <- brm(deployment_lead_1 ~ infant_mortality_rate_z + homicide_rate_z + education_spending_z + healthcare_expenditures_z ,
+                            data = data.analysis.nested,
+                            prior = PRIORS,
+                            family = bernoulli(link = "logit"),
+                            chains = CHAINS,
+                            iter = ITERS,
+                            warmup = WARMUP,
+                            cores = CORES,
+                            thin = THIN,
+                            backend = "cmdstanr",
+                            threads = threading(2),
+                            control = list(adapt_delta = 0.99,
+                                           max_treedepth = 13),
+                            save_model = here::here("Models/need_model_nested_lead_1.rds"),
+                            file_refit = "on_change")
+
+
+model.combined.nested.l1 <- brm(deployment_lead_1 ~ gdppc_z + imports_from_us_z + population_total_z + population_urban_z + v2x_polyarchy_z + un_distance_z + alba_member + iraq_coalition + infant_mortality_rate_z + homicide_rate_z + education_spending_z + healthcare_expenditures_z ,
+                                data = data.analysis.nested,
+                                prior = PRIORS,
+                                family = bernoulli(link = "logit"),
+                                chains = CHAINS,
+                                iter = ITERS,
+                                warmup = WARMUP,
+                                cores = CORES,
+                                thin = THIN,
+                                backend = "cmdstanr",
+                                threads = threading(2),
+                                control = list(adapt_delta = 0.99,
+                                               max_treedepth = 13),
+                                save_model = here::here("Models/combined_model_nested_lead_1.rds"),
+                                file_refit = "on_change")
+
+
+# Set prior for full modeling containing varying intercepts for countries. 
+
+
+PRIORS <- c(
+  prior(normal(0, 0.5), class = "b"),
+  prior(normal(0, 1), class = "Intercept"),
+  prior(gamma(1,1), class = "sd", group = "statenme"),
+  prior(gamma(1,1), class = "sd", coef = "Intercept", group = "statenme"),
+  prior(gamma(1,1), class = "sds", coef = "s(year)")
+)
+
+model.full.nested.l1 <- brm(deployment_lead_1 ~ gdppc_z + imports_from_us_z + population_total_z + population_urban_z + v2x_polyarchy_z + un_distance_z + alba_member + iraq_coalition + infant_mortality_rate_z + homicide_rate_z + education_spending_z + healthcare_expenditures_z + s(year) + (1|statenme),
+                            data = data.analysis.nested,
+                            prior = PRIORS,
+                            family = bernoulli(link = "logit"),
+                            chains = CHAINS,
+                            iter = ITERS,
+                            warmup = WARMUP,
+                            cores = CORES,
+                            thin = THIN,
+                            backend = "cmdstanr",
+                            threads = threading(2),
+                            control = list(adapt_delta = 0.99,
+                                           max_treedepth = 13),
+                            save_model = here::here("Models/full_model_nested_lead_1.rds"),
+                            file_refit = "on_change")
+
+
+
+```
+
+
+
+
+```{r brms-models-nested-lead-2}
+#| echo: false
+#| message: false
+
+ITERS <- 5000
+CHAINS <- 4
+WARMUP <- ITERS/2
+CORES <- 4
+THIN <- 1
+
+PRIORS <- c(
+  prior(normal(0, 0.5), class = "b"),
+  prior(normal(0, 1), class = "Intercept") #,
+  #prior(gamma(1, 3), class = "sd")
+)
+
+
+
+model.econ.nested.l2 <- brm(deployment_lead_2 ~ gdppc_z + imports_from_us_z + population_total_z + population_urban_z ,
+                            data = data.analysis.nested,
+                            prior = PRIORS,
+                            family = bernoulli(link = "logit"),
+                            chains = CHAINS,
+                            iter = ITERS,
+                            warmup = WARMUP,
+                            cores = CORES,
+                            thin = THIN,
+                            backend = "cmdstanr",
+                            threads = threading(2),
+                            control = list(adapt_delta = 0.99,
+                                           max_treedepth = 13),
+                            save_model = here::here("Models/econ_model_nested_lead_2.rds"),
+                            file_refit = "on_change")
+
+
+model.political.nested.l2 <- brm(deployment_lead_2 ~ v2x_polyarchy_z + un_distance_z + alba_member + iraq_coalition ,
+                                 data = data.analysis.nested,
+                                 prior = PRIORS,
+                                 family = bernoulli(link = "logit"),
+                                 chains = CHAINS,
+                                 iter = ITERS,
+                                 warmup = WARMUP,
+                                 cores = CORES,
+                                 thin = THIN,
+                                 backend = "cmdstanr",
+                                 threads = threading(2),
+                                 control = list(adapt_delta = 0.99,
+                                                max_treedepth = 13),
+                                 save_model = here::here("Models/political_model_nested_lead_2.rds"),
+                                 file_refit = "on_change")
+
+
+model.need.nested.l2 <- brm(deployment_lead_2 ~ infant_mortality_rate_z + homicide_rate_z + education_spending_z + healthcare_expenditures_z ,
+                            data = data.analysis.nested,
+                            prior = PRIORS,
+                            family = bernoulli(link = "logit"),
+                            chains = CHAINS,
+                            iter = ITERS,
+                            warmup = WARMUP,
+                            cores = CORES,
+                            thin = THIN,
+                            backend = "cmdstanr",
+                            threads = threading(2),
+                            control = list(adapt_delta = 0.99,
+                                           max_treedepth = 13),
+                            save_model = here::here("Models/need_model_nested_lead_2.rds"),
+                            file_refit = "on_change")
+
+
+model.combined.nested.l2 <- brm(deployment_lead_2 ~ gdppc_z + imports_from_us_z + population_total_z + population_urban_z + v2x_polyarchy_z + un_distance_z + alba_member + iraq_coalition + infant_mortality_rate_z + homicide_rate_z + education_spending_z + healthcare_expenditures_z ,
+                                data = data.analysis.nested,
+                                prior = PRIORS,
+                                family = bernoulli(link = "logit"),
+                                chains = CHAINS,
+                                iter = ITERS,
+                                warmup = WARMUP,
+                                cores = CORES,
+                                thin = THIN,
+                                backend = "cmdstanr",
+                                threads = threading(2),
+                                control = list(adapt_delta = 0.99,
+                                               max_treedepth = 13),
+                                save_model = here::here("Models/combined_model_nested_lead_2.rds"),
+                                file_refit = "on_change")
+
+
+# Set prior for full modeling containing varying intercepts for countries. 
+
+
+PRIORS <- c(
+  prior(normal(0, 0.5), class = "b"),
+  prior(normal(0, 1), class = "Intercept"),
+  prior(gamma(1,1), class = "sd", group = "statenme"),
+  prior(gamma(1,1), class = "sd", coef = "Intercept", group = "statenme"),
+  prior(gamma(1,1), class = "sds", coef = "s(year)")
+)
+
+model.full.nested.l2 <- brm(deployment_lead_2 ~ gdppc_z + imports_from_us_z + population_total_z + population_urban_z + v2x_polyarchy_z + un_distance_z + alba_member + iraq_coalition + infant_mortality_rate_z + homicide_rate_z + education_spending_z + healthcare_expenditures_z + s(year) + (1|statenme),
+                            data = data.analysis.nested,
+                            prior = PRIORS,
+                            family = bernoulli(link = "logit"),
+                            chains = CHAINS,
+                            iter = ITERS,
+                            warmup = WARMUP,
+                            cores = CORES,
+                            thin = THIN,
+                            backend = "cmdstanr",
+                            threads = threading(2),
+                            control = list(adapt_delta = 0.99,
+                                           max_treedepth = 13),
+                            save_model = here::here("Models/full_model_nested_lead_2.rds"),
+                            file_refit = "on_change")
+
+
+
+```
+
+
+#Tables
+
+
+## Full Model 
+
+```{r tables-full-model}
+#| echo: false
+#| message: false
+
+# Set model list
+mod.list <- list("Economic" = model.econ.l1, 
+                 "Political" = model.political.l1, 
+                 "Need" = model.need.l1,
+                 "Combined" = model.combined.l1,
+                 "Full" = model.full.l1)
+
+# Set coefficient names 
+coef.names <- c("b_gdppc_z" = "GDP Per Capita",
+                "b_imports_from_us_z" = "Imports from US",
+                "b_population_total_z" = "Total Population",
+                "b_population_urban_z" = "Percent Urban Population",
+                "b_v2x_polyarchy_z" = "Polyarchy Score",
+                "b_un_distance_z" = "UN Voting Distance",
+                "b_alba_member" = "ALBA Member",
+                "b_iraq_coalition" = "Iraq Coalition Member",
+                "b_infant_mortality_rate_z" = "Infant Mortality Rate",
+                "b_unemployment_rate_z" = "Unemployment Rate",
+                "b_healthcare_expenditures_z" = "Healthcare Expenditures",
+                "b_education_spending_z" = "Education Spending")
+
+
+# Set goodness of fit statistics
+gof.names <- c("nobs",
+               "ngroups",
+               "nclusters",
+               "elpd",
+               "waic",
+               "looic"
+               )
+
+# Set group index
+group.index <- as.data.frame(coef.names) |> 
+  dplyr::mutate(group = c("Economic", "Economic", "Economic", "Economic", 
+                          "Political", "Political", "Political", "Political", 
+                          "Need", "Need", "Need", "Need")
+                ) |> 
+  rownames_to_column(var = "raw") |> 
+  dplyr::rename("clean" = "coef.names") 
+
+
+
+tab <- modelsummary(mod.list,
+             estimate = "{estimate} [{conf.low}, {conf.high}]",
+             coef_map = coef.names,
+             gof_map = gof.names,
+             booktabs = TRUE,
+             title = "Bayesian logistic models predicting deployments \\label{tab:cymodels}") 
+
+
+tab.formatted <- tab |> 
+  tinytable::group_tt(i = list(
+    "Economic" = 1,
+    "Political" = 5,
+    "Need" = 9,
+    "Model Fit" = 13
+  )) |> 
+  tinytable::theme_tt("bootstrap") |>
+  tinytable::theme_tt("resize", width = 0.9) |> 
+  tinytable::style_tt(i = c(1,6,11,16),
+                      background = "gray") |> 
+  tinytable::style_tt(i = 15,
+                      line = "b",
+                      line_width = 0.2,
+                      line_color = "black") |> 
+  tinytable::save_tt(here::here("Tables/model_summary.tex"),
+                     overwrite = TRUE)
+
+
+```
+
+
+## Nested Models
+
+```{r tables-nested-models}
+#| echo: false
+#| message: false
+
+# Set model list
+mod.list <- list("Economic" = model.econ.nested.l1, 
+                 "Political" = model.political.nested.l1, 
+                 "Need" = model.need.nested.l1,
+                 "Combined" = model.combined.nested.l1,
+                 "Full" = model.full.nested.l1)
+
+# Set coefficient names 
+coef.names <- c("b_gdppc_z" = "GDP Per Capita",
+                "b_imports_from_us_z" = "Imports from US",
+                "b_population_total_z" = "Total Population",
+                "b_population_urban_z" = "Percent Urban Population",
+                "b_v2x_polyarchy_z" = "Polyarchy Score",
+                "b_un_distance_z" = "UN Voting Distance",
+                "b_alba_member" = "ALBA Member",
+                "b_iraq_coalition" = "Iraq Coalition Member",
+                "b_infant_mortality_rate_z" = "Infant Mortality Rate",
+                "b_unemployment_rate_z" = "Unemployment Rate",
+                "b_healthcare_expenditures_z" = "Healthcare Expenditures",
+                "b_education_spending_z" = "Education Spending")
+
+
+# Set goodness of fit statistics
+gof.names <- c("nobs",
+               "ngroups",
+               "nclusters",
+               "elpd",
+               "waic",
+               "looic"
+               )
+
+# Set group index
+group.index <- as.data.frame(coef.names) |> 
+  dplyr::mutate(group = c("Economic", "Economic", "Economic", "Economic", 
+                          "Political", "Political", "Political", "Political", 
+                          "Need", "Need", "Need", "Need")
+                ) |> 
+  rownames_to_column(var = "raw") |> 
+  dplyr::rename("clean" = "coef.names") 
+
+
+
+tab <- modelsummary(mod.list,
+             estimate = "{estimate} [{conf.low}, {conf.high}]",
+             coef_map = coef.names,
+             gof_map = gof.names,
+             booktabs = TRUE,
+             title = "Nested logistic models predicting deployments \\label{tab:cymodelsnested}") 
+
+
+tab.formatted <- tab |> 
+  tinytable::group_tt(i = list(
+    "Economic" = 1,
+    "Political" = 5,
+    "Need" = 9,
+    "Model Fit" = 13
+  )) |> 
+  tinytable::theme_tt("bootstrap") |>
+  tinytable::theme_tt("resize", width = 0.9) |> 
+  tinytable::style_tt(i = c(1,6,11,16),
+                      background = "gray") |> 
+  tinytable::style_tt(i = 15,
+                      line = "b",
+                      line_width = 0.2,
+                      line_color = "black") |> 
+  tinytable::save_tt(here::here("Tables/model_summary_nested.tex"),
+                     overwrite = TRUE)
+
+
+
+```
+
+
+# Figures
+
+## Coefficient Plots
+
+```{r coefficient-plots-base}
+
+
+# Coefficient plots for the base models
+
+set.seed(66502)
+
+mod.list <- list(model.econ.l2,
+                 model.political.l2,
+                 model.need.l2,
+                 model.combined.l2,
+                 model.full.l2)
+
+mod.names <- c("Economic", "Political", "Need", "Combined", "Full")
+
+names(mod.list) <- mod.names
+
+coef.plot <- purrr::map2(.x = seq_along(mod.list),
+                         .y = seq_along(mod.names),
+                        .f = ~brms::as_draws_df(mod.list[[.x]],
+                                             variable = "b_",
+                                             regex = TRUE) |> 
+                          dplyr::slice_sample(n = 100) |> 
+                          dplyr::select(-b_Intercept) |> 
+                          tidyr::pivot_longer(cols = everything()) |> 
+                          dplyr::mutate(`Model Group` = mod.names[[.y]],
+                                        name.full = case_when(
+                                          grepl(".*poly.*", name) ~ "Polyarchy Score",
+                                          grepl(".*dist.*", name) ~ "UN Distance",
+                                          grepl(".*iraq*", name) ~ "Iraq Coalition",
+                                          grepl(".*alba.*", name) ~ "ALBA Member",
+                                          grepl(".*infant.*", name) ~ "Infant Mortality Rate",
+                                          grepl(".*homicide.*", name) ~ "Homicide Rate",
+                                          grepl(".*educ.*", name) ~ "Education Spending",
+                                          grepl(".*health.*", name) ~ "Healthcare Spending",
+                                          grepl(".*import.*", name) ~ "Imports from US",
+                                          grepl(".*_total.*", name) ~ "Population (Total)",
+                                          grepl(".*_urban.*", name) ~ "Population (Urban)",
+                                          grepl(".*gdppc.*", name) ~ "GDP Per Capita"
+                                        )
+                                        )
+                        )
+
+coef.plot.df <- data.table::rbindlist(coef.plot) |> 
+  dplyr::filter(!is.na(name.full)) |> 
+  dplyr::mutate(name.full = factor(name.full,
+                                   levels = c("GDP Per Capita", "Imports from US", "Population (Total)", "Population (Urban)",
+                                              "Polyarchy Score", "UN Distance", "Iraq Coalition", "ALBA Member",
+                                              "Infant Mortality Rate", "Education Spending", "Healthcare Spending", "Homicide Rate"))) |> 
+  dplyr::mutate(`Model Group` = factor(`Model Group`,
+                                       levels = c("Full", "Combined", "Need", "Political", "Economic")))
+
+
+ggplot(coef.plot.df, aes(y = reorder(name.full, -as.numeric(name.full)), x = value, color = `Model Group`, fill = `Model Group`)) +
+  ggdist::stat_slabinterval(.width = c(0.5, 0.89),
+                            position = "dodge",
+                            color = "black",
+                            slab_alpha = 0.5) +
+  geom_vline(xintercept = 0) +
+  facet_grid(name.full ~ .,
+             scales = "free",
+             switch="both") +
+  viridis::scale_fill_viridis(option = "magma",
+                              discrete = TRUE,
+                              begin = 0.2,
+                              end = 0.9) +
+  guides(color = guide_legend(reverse = TRUE),
+         fill = guide_legend(reverse = TRUE)) +
+  theme_flynn(base_size = 11, base_family = "oswald") +
+  theme(strip.text.y.left = element_text(size = 8, angle = 0, hjust = 0),
+        axis.text.y = element_blank(),
+        axis.ticks.y.left = element_blank()) +
+  labs(x = "Estimate",
+       y = "Coefficient")
+
+ggsave(here::here("Figures/coefficient-plot.png"),
+       width = 7.5,
+       height = 8.5,
+       unit = "in")
+
+
+```
+
+
+
+
+```{r coefficient-plots-nested}
+
+
+# Coefficient plots for the base models
+
+set.seed(66502)
+
+mod.list <- list(model.econ.nested.l2,
+                 model.political.nested.l2,
+                 model.need.nested.l2,
+                 model.combined.nested.l2,
+                 model.full.nested.l2)
+
+mod.names <- c("Economic", "Political", "Need", "Combined", "Full")
+
+names(mod.list) <- mod.names
+
+coef.plot <- purrr::map2(.x = seq_along(mod.list),
+                         .y = seq_along(mod.names),
+                        .f = ~brms::as_draws_df(mod.list[[.x]],
+                                             variable = "b_",
+                                             regex = TRUE) |> 
+                          dplyr::slice_sample(n = 100) |> 
+                          dplyr::select(-b_Intercept) |> 
+                          tidyr::pivot_longer(cols = everything()) |> 
+                          dplyr::mutate(`Model Group` = mod.names[[.y]],
+                                        name.full = case_when(
+                                          grepl(".*poly.*", name) ~ "Polyarchy Score",
+                                          grepl(".*dist.*", name) ~ "UN Distance",
+                                          grepl(".*iraq*", name) ~ "Iraq Coalition",
+                                          grepl(".*alba.*", name) ~ "ALBA Member",
+                                          grepl(".*infant.*", name) ~ "Infant Mortality Rate",
+                                          grepl(".*homicide.*", name) ~ "Homicide Rate",
+                                          grepl(".*educ.*", name) ~ "Education Spending",
+                                          grepl(".*health.*", name) ~ "Healthcare Spending",
+                                          grepl(".*import.*", name) ~ "Imports from US",
+                                          grepl(".*_total.*", name) ~ "Population (Total)",
+                                          grepl(".*_urban.*", name) ~ "Population (Urban)",
+                                          grepl(".*gdppc.*", name) ~ "GDP Per Capita"
+                                        )
+                                        )
+                        )
+
+coef.plot.df <- data.table::rbindlist(coef.plot) |> 
+  dplyr::filter(!is.na(name.full)) |> 
+  dplyr::mutate(name.full = factor(name.full,
+                                   levels = c("GDP Per Capita", "Imports from US", "Population (Total)", "Population (Urban)",
+                                              "Polyarchy Score", "UN Distance", "Iraq Coalition", "ALBA Member",
+                                              "Infant Mortality Rate", "Education Spending", "Healthcare Spending", "Homicide Rate"))) |> 
+  dplyr::mutate(`Model Group` = factor(`Model Group`,
+                                       levels = c("Full", "Combined", "Need", "Political", "Economic")))
+
+
+ggplot(coef.plot.df, aes(y = reorder(name.full, -as.numeric(name.full)), x = value, color = `Model Group`, fill = `Model Group`)) +
+  ggdist::stat_slabinterval(.width = c(0.5, 0.89),
+                            position = "dodge",
+                            color = "black",
+                            slab_alpha = 0.5) +
+  geom_vline(xintercept = 0) +
+  facet_grid(name.full ~ .,
+             scales = "free",
+             switch="both") +
+  viridis::scale_fill_viridis(option = "magma",
+                              discrete = TRUE,
+                              begin = 0.2,
+                              end = 0.9) +
+  guides(color = guide_legend(reverse = TRUE),
+         fill = guide_legend(reverse = TRUE)) +
+  theme_flynn(base_size = 11, base_family = "oswald") +
+  theme(strip.text.y.left = element_text(size = 8, angle = 0, hjust = 0),
+        axis.text.y = element_blank(),
+        axis.ticks.y.left = element_blank()) +
+  labs(x = "Estimate",
+       y = "Coefficient")
+
+ggsave(here::here("Figures/coefficient-plot-nested.png"),
+       width = 7.5,
+       height = 8.5,
+       unit = "in")
+
+
+```
+
+
+
+
+## Separation Plots
+
+```{r separation-plots-base}
+
+# Set model list
+mod.list <- list("Economic" = model.econ.l1, 
+                 "Political" = model.political.l1, 
+                 "Need" = model.need.l1,
+                 "Combined" = model.combined.l1,
+                 "Full" = model.full.l1)
+
+# Generate 500 posterior draws of the expected value (i.e. 0 or 1)
+# The posterior_predict function generates a matrix with columns representing individual cases rather than rows. 
+# Need to convert columns to rows using the t() function.
+# Use map() function to run over all of the models in mod.list (see above)
+
+posterior.list <- map(.x = seq_along(mod.list), 
+                      .f = ~ t(brms::posterior_epred(mod.list[[.x]], 
+                                                     ndraws = 500,
+                                                     re_formula = NULL)) |> 
+                       as.data.frame() |> 
+                       rowwise() |> 
+                       dplyr::mutate(posterior_mean = mean(c_across(everything()))) |> 
+                       bind_cols(mod.list[[.x]]$data) |> 
+                        dplyr::mutate(predicted_deployment = case_when(posterior_mean > 0.08 ~ 1, 
+                                                                       TRUE ~ 0)
+                                      ) 
+                      )
+                      
+# Combine the separate list elements into a single data frame. 
+# Use the idcol argument to identify the separate models from the list elements.
+sep.plot.data <- data.table::rbindlist(posterior.list, idcol = TRUE, fill = TRUE) |> 
+  dplyr::mutate(.id = case_when(.id == 1 ~ "Economic",
+                               .id == 2 ~ "Political",
+                               .id == 3 ~ "Need",
+                               .id == 4 ~ "Combined",
+                               .id == 5 ~ "Full"),
+                .id = factor(.id, 
+                             levels = c("Economic", "Political", "Need", "Combined", "Full"))) |> 
+  group_by(.id) |>
+  arrange(posterior_mean) |> 
+  dplyr::mutate(index = row_number()) |> 
+  pivot_longer(cols = c("V1":"V500"))
+
+
+
+# Plot the separation plot
+ggplot() +
+  geom_rect(data = sep.plot.data |> filter(deployment_lead_1 == 0), aes(x = index, xmin = index-0.5, xmax = index+0.5, y = posterior_mean, ymin=0, ymax = 1), fill = "gray95", show.legend = FALSE, alpha = 1, ) +
+    geom_rect(data = sep.plot.data |> filter(deployment_lead_1 == 1), aes(x = index, xmin = index-0.5, xmax = index+0.5, y = posterior_mean, ymin=0, ymax = 1), fill = "black", show.legend = FALSE, alpha = 1, ) +
+  stat_lineribbon(data = sep.plot.data, aes(x = index, y = value), .width = ppoints(50), show.legend = FALSE, alpha = 0.6) +
+  #geom_line(data = sep.plot.data, aes(x = index, y = posterior_mean), color = "red") +
+  facet_wrap(. ~ .id,
+             scales = "free_x",
+             ncol = 1) +
+  theme_flynn(base_family = "oswald", base_size = 10) +
+  viridis::scale_fill_viridis(option = "plasma",
+                              begin = 0,
+                              end = 1.0,
+                              discrete = TRUE,
+                              direction = -1)  +
+  scale_x_continuous(breaks = scales::pretty_breaks(n = 10),
+                     expand = c(0,0)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,1)) +
+  labs(x = "Index",
+       y = "Predicted Probability")
+
+ggsave(here::here("Figures/separation_plot_base.png"), 
+       width = 6, 
+       height = 7, 
+       dpi = 400)
+
+
+
+```
+
+
+```{r separation-plots-nested}
+
+# Set model list
+mod.list <- list("Economic" = model.econ.nested.l1, 
+                 "Political" = model.political.nested.l1, 
+                 "Need" = model.need.nested.l1,
+                 "Combined" = model.combined.nested.l1)
+
+# Generate 500 posterior draws of the expected value (i.e. 0 or 1)
+# The posterior_predict function generates a matrix with columns representing individual cases rather than rows. 
+# Need to convert columns to rows using the t() function.
+# Use map() function to run over all of the models in mod.list (see above)
+
+posterior.list <- map(.x = seq_along(mod.list), 
+                      .f = ~ t(brms::posterior_epred(mod.list[[.x]], 
+                                                     ndraws = 500,
+                                                     re_formula = NULL)) |> 
+                       as.data.frame() |> 
+                       rowwise() |> 
+                       dplyr::mutate(posterior_mean = mean(c_across(everything()))) |> 
+                       bind_cols(mod.list[[.x]]$data) |> 
+                        dplyr::mutate(predicted_deployment = case_when(posterior_mean > 0.08 ~ 1, 
+                                                                       TRUE ~ 0)
+                                      ) 
+                      )
+                      
+# Combine the separate list elements into a single data frame. 
+# Use the idcol argument to identify the separate models from the list elements.
+sep.plot.data <- data.table::rbindlist(posterior.list, idcol = TRUE, fill = TRUE) |> 
+  dplyr::mutate(.id = case_when(.id == 1 ~ "Economic",
+                               .id == 2 ~ "Political",
+                               .id == 3 ~ "Need",
+                               .id == 4 ~ "Combined"),
+                .id = factor(.id, 
+                             levels = c("Economic", "Political", "Need", "Combined"))) |> 
+  group_by(.id) |>
+  arrange(posterior_mean) |> 
+  dplyr::mutate(index = row_number()) |> 
+  pivot_longer(cols = c("V1":"V500"))
+
+
+
+# Plot the separation plot
+ggplot() +
+  geom_rect(data = sep.plot.data |> filter(deployment_lead_1 == 0), aes(x = index, xmin = index-0.5, xmax = index+0.5, y = posterior_mean, ymin=0, ymax = 1), fill = "gray95", show.legend = FALSE, alpha = 1, ) +
+    geom_rect(data = sep.plot.data |> filter(deployment_lead_1 == 1), aes(x = index, xmin = index-0.5, xmax = index+0.5, y = posterior_mean, ymin=0, ymax = 1), fill = "black", show.legend = FALSE, alpha = 1, ) +
+  stat_lineribbon(data = sep.plot.data, aes(x = index, y = value), .width = ppoints(50), show.legend = FALSE, alpha = 0.6) +
+  #geom_line(data = sep.plot.data, aes(x = index, y = posterior_mean), color = "red") +
+  facet_wrap(. ~ .id,
+             scales = "free_x",
+             ncol = 1) +
+  theme_flynn(base_family = "oswald", base_size = 10) +
+  viridis::scale_fill_viridis(option = "plasma",
+                              begin = 0,
+                              end = 1.0,
+                              discrete = TRUE,
+                              direction = -1)  +
+  scale_x_continuous(expand = c(0,0),
+                     breaks = scales::pretty_breaks(n = 5)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,1)) +
+  labs(x = "Index",
+       y = "Predicted Probability")
+
+ggsave(here::here("Figures/separation_plot_nested.png"), width = 6, height = 6, dpi = 400)
+
+
+```
+
+
+## ROC Curve Plots
+
+```{r roc-curves-base}
+
+# Set model list
+mod.list <- list("Economic" = model.econ.l1, 
+                 "Political" = model.political.l1, 
+                 "Need" = model.need.l1,
+                 "Combined" = model.combined.l1,
+                 "Full" = model.combined.l1)
+
+# Generate 100 posterior draws of the expected value (i.e. 0 or 1)
+# The posterior_epred function generates a matrix with columns representing individual cases rather than rows. 
+# Need to convert columns to rows using the t() function.
+# Use map() function to run over all of the models in mod.list (see above)
+
+posterior.list <- map(.x = seq_along(mod.list), 
+                       .f = ~ t(brms::posterior_epred(mod.list[[.x]], 
+                                                      ndraws = 100,
+                                                      re_fomula = NULL)) |> 
+                         as.data.frame() |> 
+                         rowwise() |> 
+                         dplyr::mutate(posterior_mean = mean(c_across(everything()))) |> 
+                         bind_cols(mod.list[[.x]]$data) |> 
+                        mutate(probs = list(seq(0.01, 1.0, 0.01)))
+                      )
+
+roc.df <- data.table::rbindlist(posterior.list, 
+                                idcol = TRUE, 
+                                fill = TRUE) |> 
+  dplyr::mutate(.id = case_when(.id == 1 ~ "Economic",
+                               .id == 2 ~ "Political",
+                               .id == 3 ~ "Need",
+                               .id == 4 ~ "Combined",
+                               .id == 5 ~ "Full"),
+                .id = factor(.id, 
+                             levels = c("Full", "Combined", "Need", "Political", "Economic"))) |> 
+  group_by(.id) |>
+  arrange(posterior_mean) |> 
+  dplyr::mutate(index = row_number()) |> 
+  pivot_longer(cols = c("V1":"V100")) |> 
+  unnest(probs) |> 
+  dplyr::mutate(predicted_deployment = case_when(value > probs ~ 1, 
+                                                 TRUE ~ 0),
+                true_positive = case_when(deployment_lead_1 == 1 & predicted_deployment == 1 ~ 1,
+                                          TRUE ~ 0),
+                false_positive = case_when(deployment_lead_1 == 0 & predicted_deployment == 1 ~ 1,
+                                           TRUE ~ 0),
+                true_negative = case_when(deployment_lead_1 == 0 & predicted_deployment == 0 ~ 1,
+                                          TRUE ~ 0),
+                false_negative = case_when(deployment_lead_1 == 1 & predicted_deployment == 0 ~ 1,
+                                           TRUE ~ 0)) |> 
+  group_by(.id, probs) |>
+  dplyr::mutate(sensitivity = sum(true_positive)/(sum(true_positive) + sum(false_negative)),
+                specificity = sum(true_negative)/(sum(true_negative) + sum(false_positive)),
+                precision = sum(true_positive)/(sum(true_positive) + sum(false_positive)),
+                recall = sum(true_positive)/(sum(true_positive) + sum(false_negative))) |> 
+  dplyr::summarise(sensitivity = mean(sensitivity),
+                   specificity = mean(specificity),
+                   precision = mean(precision),
+                   recall = mean(recall))
+
+
+ggplot(roc.df, aes(x = 1 - specificity, y = sensitivity, color = .id, linetype = .id)) +
+  geom_line(linewidth = 0.7) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed") +
+  theme_flynn(base_family = "oswald", base_size = 10) +
+  coord_fixed(ratio = 1) +
+  labs(x = "False Positive Rate",
+       y = "True Positive Rate",
+       title = "ROC Curves for Base Models") +
+  viridis::scale_color_viridis(option = "turbo",
+                               discrete = TRUE) +
+  scale_x_continuous(expand = c(0,0), limits = c(0,1.01)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,1.01)) +
+  theme(legend.position = "bottom",
+        legend.title = element_text(margin = margin(r = 0.2, unit = "cm"))) +
+  labs(color = "Model",
+       linetype = "Model")
+
+ggsave(here::here("Figures/roc_curves_base.png"), width = 7, height = 6, dpi = 400)
+
+```
+
+
+
+
+
+```{r roc-curves-nested}
+
+# Set model list
+
+# Set model list
+mod.list <- list("Economic" = model.econ.nested.l2, 
+                 "Political" = model.political.nested.l2, 
+                 "Need" = model.need.nested.l2,
+                 "Combined" = model.combined.nested.l2,
+                 "Full" = model.full.nested.l2)
+
+# Generate 500 posterior draws of the expected value (i.e. 0 or 1)
+# The posterior_predict function generates a matrix with columns representing individual cases rather than rows. 
+# Need to convert columns to rows using the t() function.
+# Use map() function to run over all of the models in mod.list (see above)
+
+posterior.list <- map(.x = seq_along(mod.list), 
+                       .f = ~ t(brms::posterior_epred(mod.list[[.x]], 
+                                                      ndraws = 100,
+                                                      re_formula = NULL)) |> 
+                         as.data.frame() |> 
+                         rowwise() |> 
+                         dplyr::mutate(posterior_mean = mean(c_across(everything()))) |> 
+                         bind_cols(mod.list[[.x]]$data) |> 
+                        mutate(probs = list(seq(0.01,1.0, 0.005)))
+                      )
+
+roc.df <- data.table::rbindlist(posterior.list, idcol = TRUE, fill = TRUE) |> 
+  dplyr::mutate(.id = case_when(.id == 1 ~ "Economic",
+                               .id == 2 ~ "Political",
+                               .id == 3 ~ "Need",
+                               .id == 4 ~ "Combined",
+                               .id == 5 ~ "Full"),
+                .id = factor(.id, 
+                             levels = c("Full", "Combined", "Need", "Political", "Economic"))) |> 
+  group_by(.id) |>
+  arrange(posterior_mean) |> 
+  dplyr::mutate(index = row_number()) |> 
+  pivot_longer(cols = c("V1":"V100")) |> 
+  unnest(probs) |> 
+  dplyr::mutate(predicted_deployment = case_when(value > probs ~ 1, 
+                                                 TRUE ~ 0),
+                true_positive = case_when(deployment_lead_2 == 1 & predicted_deployment == 1 ~ 1,
+                                          TRUE ~ 0),
+                false_positive = case_when(deployment_lead_2 == 0 & predicted_deployment == 1 ~ 1,
+                                           TRUE ~ 0),
+                true_negative = case_when(deployment_lead_2 == 0 & predicted_deployment == 0 ~ 1,
+                                          TRUE ~ 0),
+                false_negative = case_when(deployment_lead_2 == 1 & predicted_deployment == 0 ~ 1,
+                                           TRUE ~ 0)) |> 
+  group_by(.id, probs) |>
+  dplyr::mutate(sensitivity = sum(true_positive)/(sum(true_positive) + sum(false_negative)),
+                specificity = sum(true_negative)/(sum(true_negative) + sum(false_positive)),
+                precision = sum(true_positive)/(sum(true_positive) + sum(false_positive)),
+                recall = sum(true_positive)/(sum(true_positive) + sum(false_negative))) |> 
+  dplyr::summarise(sensitivity = mean(sensitivity),
+                   specificity = mean(specificity),
+                   precision = mean(precision),
+                   recall = mean(recall))
+
+
+ggplot(roc.df, aes(x = 1 - specificity, y = sensitivity, color = .id, linetype = .id)) +
+  geom_line(linewidth = 0.7) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed") +
+  theme_flynn(base_family = "oswald", base_size = 10) +
+  coord_fixed(ratio = 1) +
+  labs(x = "False Positive Rate",
+       y = "True Positive Rate",
+       title = "ROC Curves for Nested Models") +
+  viridis::scale_color_viridis(option = "turbo",
+                               discrete = TRUE) +
+  scale_x_continuous(expand = c(0,0), limits = c(0,1.01)) +
+  scale_y_continuous(expand = c(0,0), limits = c(0,1.01)) +
+  theme(legend.position = "bottom",
+        legend.title = element_text(margin = margin(r = 0.2, unit = "cm"))) +
+  labs(color = "Model",
+       linetype = "Model")
+
+ggsave(here::here("Figures/roc_curves_nested.png"), width = 7, height = 6, dpi = 400)
+
+```
+
+
+
+
+```{r book-code-test}
+
+model.econ$data$predicted <- as.data.frame(predict(model.econ))
+model.political$data$predicted <- as.data.frame(predict(model.political))
+model.need$data$predicted <- as.data.frame(predict(model.need))
+model.combined$data$predicted <- as.data.frame(predict(model.combined))
+
+
+op.predict.list <- list(model.econ$data, 
+                        model.political$data, 
+                        model.need$data, 
+                        model.combined$data)
+
+# Create loop to generate ROC curve for different p values
+results <- list()
+
+prob <-  1
+
+for(prob in 1:1000) {
+# Huzzah!
+  
+op.predict.list.2 <- lapply(op.predict.list, function(x) 
+  dplyr::select(x, predicted, deployment_lead_1) %>% 
+    mutate(predicted.value = ifelse(predicted$Estimate >= (prob/1000), 1, 0),
+           match = ifelse(deployment_lead_1 == 1 & predicted.value == 1 | deployment_lead_1 == 0 & predicted.value == 0, 1, 0),
+           percent.correct = sum(match)/length(match),
+           false.neg = ifelse(predicted.value == 0 & deployment_lead_1 == 1, 1, 0),
+           false.pos = ifelse(predicted.value == 1 & deployment_lead_1 == 0, 1, 0),
+           true.neg = ifelse(deployment_lead_1 == 0 & predicted.value == 0, 1, 0),
+           true.pos = ifelse(deployment_lead_1 == 1 & predicted.value == 1, 1, 0),
+           total.no = ifelse(deployment_lead_1 == 0, 1, 0),
+           total.yes = ifelse(deployment_lead_1 == 1, 1, 0)) %>% 
+    dplyr::summarise(percent.correct = mean(percent.correct),
+                     false.neg = sum(false.neg),
+                     false.pos = sum(false.pos),
+                     true.neg = sum(true.neg),
+                     true.pos = sum(true.pos),
+                     total.no = sum(total.no),
+                     total.yes = sum(total.yes)) %>% 
+    mutate(`False Positive Rate` = false.pos/total.no,
+           `False Negative Rate` = false.neg/total.yes,
+           `Sensitivity` = true.pos/total.yes,
+           `Specificity` = true.neg/total.no,
+           pvalue = prob/1000))
+
+op.predict.df <- bind_rows(op.predict.list.2) %>% 
+  mutate(Model = c("Economic", "Political", "Need", "Combined")) %>% 
+  dplyr::select(Model, percent.correct, `False Positive Rate`, `False Negative Rate`, `Sensitivity`, `Specificity`, pvalue) 
+
+results[[prob]] <- op.predict.df
+
+prob <- prob + 1 
+}
+
+results.df <- bind_rows(results) %>% 
+  mutate(Model = factor(Model, levels = c("Economic", "Political", "Need", "Combined")))
+
+
+roc.plot <- ggplot(results.df, aes(x = 1- Specificity, y = Sensitivity, color = Model, linetype = Model)) +
+  geom_line(size = 1) +
+  geom_abline(intercept = 0, slope = 1, color = "black", size = 1, linetype = "solid") +
+  scale_x_continuous(expand = c(0, 0), labels = percent_format()) +
+  scale_y_continuous(expand = c(0, 0), labels = percent_format()) +
+  viridis::scale_color_viridis(option = "magma", discrete = TRUE, begin = 0.3, end = 0.9) +
+  theme_flynn() +
+  theme(axis.text = element_text(size = 11),
+        plot.title = element_text(size = 11 * 1.3),
+        axis.title = element_text(size = 11 * 1.1),
+        legend.title = element_text(size = 11 * 1.1),
+        legend.position = "bottom",
+        legend.key.width = unit(1, "cm"),
+        legend.text = element_text(size = 11 * 1.1, margin = margin(l = -0.30, unit = "cm"))) +
+  guides(color = guide_legend(ncol = 1)) +
+  labs(x = "False Positive Rate",
+       y = "True Positive Rate",
+       title = "ROC Curve for Individual Protest Models")
+
+roc.plot
+
+
+### p value comparison plot
+ggplot(results.df) +
+  geom_line(aes(x = pvalue, y = Sensitivity, color = "Sensitivity"), size = 1) +
+  geom_line(aes(x = pvalue, y = Specificity, color = "Specificity"), linetype = "longdash", size = 1) +
+  geom_line(aes(x = pvalue, y = percent.correct, color = "Percent Correct"), linetype = "dashed", size = 1) +
+  facet_wrap(. ~ Model, ncol = 2) +
+  scale_y_continuous(breaks = seq(0, 1, 0.20), labels = percent_format()) +
+  scale_color_brewer(palette = "Set2") +
+  theme_flynn() +
+  labs(x = "Probability threshold",
+       y = "Percent",
+       color = "Statistic")
+
+
+
+
+
+```
+
+
+
+## Model Fit Checks
+
+```{r looic-checks}
+
+# Create list of model objects
+mod.list <- list("Economic" = model.econ.nested, 
+                 "Political" = model.political.nested, 
+                 "Need" = model.need.nested,
+                 "Combined" = model.combined.nested,
+                 "Full" = model.full.nested)
+
+
+
+
+# Run LOO on all five models and extract pointwise estimates
+
+loo.out <- mod.list |> 
+  imap(\(model, modelname) {
+    loo(model, pointwise = TRUE)$pointwise |> 
+      as.data.frame() |> 
+      mutate(name = modelname)
+  }) |> 
+  purrr::list_rbind()
+
+# Combine loo estimtes with sample data
+loo.out.insample <- mod.list |> 
+  imap(\(model, modelname) {
+    loo(model, 
+        pointwise = TRUE)$pointwise |> 
+      as.data.frame() |> 
+      dplyr::mutate(row_index = row_number(),
+                    modelname = modelname) |> 
+      left_join(data.analysis.nested |> dplyr::select(statenme, year, row_index)
+                , by = "row_index")
+  }) |> 
+  purrr::list_rbind()
+
+
+
+ggplot(data = loo.out.insample,
+       aes(x = row_index, y = influence_pareto_k)) +
+  geom_point(shape = 3) +
+  geom_label_repel(data = loo.out.insample |> filter(abs(influence_pareto_k) > 0.2),
+                   aes(label = glue::glue("{statenme}, {year}"))) +
+  geom_hline(yintercept = 0) +
+  theme_flynn(base_family = "oswald",
+              base_size = 11) +
+  facet_wrap(. ~ modelname,
+             nrow = 1)
+
+
+```
+
+
+
+
+
+
+## Country Varying Intercepts
+
+```{r country-varying-intercepts-combined}
+
+library(brms)
+library(tidyverse)
+library(tidybayes)
+library(patchwork)
+
+# Extract 500 posterior samples for country varying intercepts from each model
+set.seed(123)
+
+# Function to extract and prepare random effects
+extract_country_intercepts <- function(model, model_name, n_samples = 500) {
+  # Extract random effects for countries
+  country_samples <- model %>%
+    spread_draws(r_statenme[statenme, ], ndraws = n_samples) %>%
+    rename(intercept = r_statenme) %>%
+    mutate(model = model_name)
+  
+  return(country_samples)
+}
+
+# Extract from all four models
+econ_intercepts <- extract_country_intercepts(model.econ, "Economic")
+political_intercepts <- extract_country_intercepts(model.political, "Political")
+need_intercepts <- extract_country_intercepts(model.need, "Need")
+combined_intercepts <- extract_country_intercepts(model.combined, "Combined")
+
+
+# Extract from all four models
+econ_intercepts_nested <- extract_country_intercepts(model.econ.nested, "Economic Nested")
+political_intercepts_nested <- extract_country_intercepts(model.political.nested, "Political Nested")
+need_intercepts_nested <- extract_country_intercepts(model.need.nested, "Need Nested")
+combined_intercepts_nested <- extract_country_intercepts(model.combined.nested, "Combined Nested")
+
+
+# Combine all samples
+all_intercepts <- bind_rows(
+  econ_intercepts,
+  political_intercepts,
+  need_intercepts,
+  combined_intercepts,
+  econ_intercepts_nested,
+  political_intercepts_nested,
+  need_intercepts_nested,
+  combined_intercepts_nested
+) |> 
+  dplyr::mutate(statenme = gsub("\\.", " ", statenme),
+                nesting_group = case_when(
+                  grepl(".*Nested.*", model) ~ "Nested",
+                  TRUE ~ "Base"
+                ),
+                model = gsub(" Nested", "", model),
+                model = factor(model,
+                               levels = c("Combined", "Need", "Economic", "Political")))
+
+# Create caterpillar plot with all models
+plot_all_models <- all_intercepts %>%
+  group_by(nesting_group, statenme, model) %>%
+  median_qi(intercept, .width = c(0.5, 0.95)) %>%
+  group_by(statenme) |> 
+  dplyr::mutate(intercept_avg = mean(intercept[nesting_group == "Base"])) |> 
+  ggplot(aes(y = reorder(statenme, intercept_avg), 
+             x = intercept, 
+             color = model, 
+             shape = model)) +
+  geom_pointinterval(position = position_dodge(width = 0.9), 
+                     aes(xmin = .lower, xmax = .upper)) +
+  geom_vline(xintercept = 0, 
+             linetype = "dashed", 
+             alpha = 0.5) +
+  facet_wrap(. ~ nesting_group,
+             scales = "free_x") +
+  labs(
+    title = "Country-Specific Intercepts Across Models",
+    subtitle = "Points show medians and bands correspond to 50% and 95% credible intervals",
+    x = "Country-Specific Intercept (Log-Odds)",
+    y = "Country",
+    color = "Model",
+    shape = "Model"
+  ) +
+  viridis::scale_color_viridis(option = "magma",
+                              discrete = TRUE,
+                              begin = 0.2,
+                              end = 0.9) +
+  guides(color = guide_legend(reverse = TRUE),
+         shape = guide_legend(reverse = TRUE)) +
+  theme_flynn(base_family = "oswald", base_size = 12) +
+  theme(
+    legend.position = "bottom",
+    axis.text.y = element_text(size = 10)
+  )
+
+print(plot_all_models)
+
+ggsave(here::here("Figures/figure-intercept-plot-combined.png"),
+       dpi = 400,
+       height = 9,
+       width = 7)
+
+
+
+```
+
+
+
+# Variance Analysis
+
+```{r}
+library(brms)
+library(tidyverse)
+library(tidybayes)
+library(bayesplot)
+library(ggdist)
+library(patchwork)
+library(corrplot)
+
+# ============================================================================
+# 1. EXTRACT VARYING INTERCEPTS FROM ALL MODELS
+# ============================================================================
+
+# Function to extract country intercepts with model name
+extract_country_intercepts <- function(model, model_name) {
+  # Get summary statistics
+  intercepts_summary <- ranef(model)$statenme[, , "Intercept"] %>%
+    as.data.frame() %>%
+    rownames_to_column("statenme") %>%
+    rename(
+      estimate = Estimate,
+      est_error = Est.Error,
+      lower_95 = Q2.5,
+      upper_95 = Q97.5
+    ) %>%
+    mutate(model = model_name)
+  
+  # Get posterior draws
+  intercepts_draws <- model %>%
+    spread_draws(r_statenme[statenme, ], ndraws = 1000) %>%
+    rename(intercept = r_statenme) %>%
+    mutate(model = model_name)
+  
+  return(list(summary = intercepts_summary, draws = intercepts_draws))
+}
+
+# Extract from all models
+econ_results <- extract_country_intercepts(model.econ, "Economic")
+political_results <- extract_country_intercepts(model.political, "Political")
+need_results <- extract_country_intercepts(model.need, "Need")
+combined_results <- extract_country_intercepts(model.combined, "Combined")
+
+# Combine summaries and draws
+all_summaries <- bind_rows(
+  econ_results$summary,
+  political_results$summary,
+  need_results$summary,
+  combined_results$summary
+)
+
+all_draws <- bind_rows(
+  econ_results$draws,
+  political_results$draws,
+  need_results$draws,
+  combined_results$draws
+)
+
+# ============================================================================
+# 2. CORRELATION MATRIX BETWEEN MODELS
+# ============================================================================
+
+# Create wide format for correlation analysis
+intercepts_wide <- all_summaries %>%
+  select(statenme, model, estimate) %>%
+  pivot_wider(names_from = model, values_from = estimate)
+
+# Calculate correlation matrix
+cor_matrix <- intercepts_wide %>%
+  select(-statenme) %>%
+  cor(use = "complete.obs")
+
+print("Correlation Matrix of Country Intercepts Across Models:")
+print(round(cor_matrix, 3))
+
+# Visualize correlation matrix
+corrplot(cor_matrix, 
+         method = "color", 
+         type = "upper",
+         tl.col = "black",
+         tl.srt = 45,
+         addCoef.col = "black",
+         title = "Correlations of Country Intercepts Between Models",
+         mar = c(0, 0, 2, 0),
+         col = colorRampPalette(c("#2166AC", "white", "#B2182B"))(200))
+
+# ============================================================================
+# 3. PAIRWISE SCATTERPLOTS
+# ============================================================================
+
+library(GGally)
+
+plot_pairs <- intercepts_wide %>%
+  select(-statenme) %>%
+  ggpairs(
+    title = "Pairwise Relationships of Country Intercepts Across Models",
+    upper = list(continuous = wrap("cor", size = 5, color = "darkblue")),
+    lower = list(continuous = wrap("points", alpha = 0.5, size = 1.5)),
+    diag = list(continuous = wrap("densityDiag", fill = "steelblue", alpha = 0.5))
+  ) +
+  theme_minimal()
+
+print(plot_pairs)
+
+# Individual scatterplots with country labels
+plot_econ_political <- ggplot(intercepts_wide, 
+                               aes(x = Economic, y = Political)) +
+  geom_point(alpha = 0.6, size = 3, color = "steelblue") +
+  geom_smooth(method = "lm", se = TRUE, color = "darkblue", fill = "lightblue") +
+  geom_hline(yintercept = 0, linetype = "dashed", alpha = 0.5) +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.5) +
+  ggrepel::geom_text_repel(aes(label = statenme), size = 2.5, max.overlaps = 10) +
+  labs(
+    title = "Economic vs Political Model Intercepts",
+    x = "Economic Model Intercept",
+    y = "Political Model Intercept"
+  ) +
+  theme_minimal()
+
+plot_econ_need <- ggplot(intercepts_wide, 
+                         aes(x = Economic, y = Need)) +
+  geom_point(alpha = 0.6, size = 3, color = "coral") +
+  geom_smooth(method = "lm", se = TRUE, color = "darkred", fill = "lightcoral") +
+  geom_hline(yintercept = 0, linetype = "dashed", alpha = 0.5) +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.5) +
+  ggrepel::geom_text_repel(aes(label = statenme), size = 2.5, max.overlaps = 10) +
+  labs(
+    title = "Economic vs Need Model Intercepts",
+    x = "Economic Model Intercept",
+    y = "Need Model Intercept"
+  ) +
+  theme_minimal()
+
+plot_combined_econ <- ggplot(intercepts_wide, 
+                              aes(x = Combined, y = Economic)) +
+  geom_point(alpha = 0.6, size = 3, color = "forestgreen") +
+  geom_smooth(method = "lm", se = TRUE, color = "darkgreen", fill = "lightgreen") +
+  geom_abline(slope = 1, intercept = 0, linetype = "dotted", color = "gray50") +
+  geom_hline(yintercept = 0, linetype = "dashed", alpha = 0.5) +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.5) +
+  ggrepel::geom_text_repel(aes(label = statenme), size = 2.5, max.overlaps = 10) +
+  labs(
+    title = "Combined vs Economic Model Intercepts",
+    subtitle = "Dotted line shows perfect agreement",
+    x = "Combined Model Intercept",
+    y = "Economic Model Intercept"
+  ) +
+  theme_minimal()
+
+# Combine plots
+(plot_econ_political | plot_econ_need) / plot_combined_econ
+
+# ============================================================================
+# 4. IDENTIFY COUNTRIES WITH DIVERGENT INTERCEPTS ACROSS MODELS
+# ============================================================================
+
+# Calculate variance across models for each country
+intercept_variance <- intercepts_wide %>%
+  rowwise() %>%
+  mutate(
+    mean_intercept = mean(c(Economic, Political, Need, Combined), na.rm = TRUE),
+    sd_intercept = sd(c(Economic, Political, Need, Combined), na.rm = TRUE),
+    range_intercept = max(c(Economic, Political, Need, Combined), na.rm = TRUE) - 
+                      min(c(Economic, Political, Need, Combined), na.rm = TRUE)
+  ) %>%
+  ungroup() %>%
+  arrange(desc(sd_intercept))
+
+# Top 10 countries with most variation across models
+print("Countries with highest variation across models:")
+print(intercept_variance %>% 
+        select(statenme, mean_intercept, sd_intercept, range_intercept) %>%
+        head(10))
+
+# Visualize variation
+plot_variation <- intercept_variance %>%
+  slice_max(sd_intercept, n = 15) %>%
+  pivot_longer(cols = c(Economic, Political, Need, Combined),
+               names_to = "model", values_to = "intercept") %>%
+  ggplot(aes(x = model, y = intercept, group = statenme)) +
+  geom_line(alpha = 0.6, linewidth = 1) +
+  geom_point(aes(color = model), size = 3) +
+  facet_wrap(~reorder(statenme, -sd_intercept), ncol = 5) +
+  labs(
+    title = "Countries with Most Variation Across Models",
+    subtitle = "Top 15 countries by standard deviation of intercepts",
+    x = "Model",
+    y = "Country Intercept"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 7),
+    strip.text = element_text(size = 8, face = "bold"),
+    legend.position = "none"
+  )
+
+print(plot_variation)
+
+# ============================================================================
+# 5. HEATMAP OF COUNTRY INTERCEPTS ACROSS MODELS
+# ============================================================================
+
+# Prepare data for heatmap
+heatmap_data <- all_summaries %>%
+  select(statenme, model, estimate)
+
+plot_heatmap <- ggplot(heatmap_data, 
+                       aes(x = model, y = reorder(statenme, estimate), 
+                           fill = estimate)) +
+  geom_tile(color = "white", linewidth = 0.5) +
+  scale_fill_gradient2(
+    low = "#2166AC", 
+    mid = "white", 
+    high = "#B2182B",
+    midpoint = 0,
+    name = "Intercept"
+  ) +
+  labs(
+    title = "Country-Specific Intercepts Across All Models",
+    x = "Model",
+    y = "Country"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.y = element_text(size = 6),
+    axis.text.x = element_text(size = 10, face = "bold"),
+    panel.grid = element_blank()
+  )
+
+print(plot_heatmap)
+
+# ============================================================================
+# 6. POSTERIOR UNCERTAINTY COMPARISON
+# ============================================================================
+
+# Compare uncertainty (credible interval width) across models
+uncertainty_comparison <- all_summaries %>%
+  mutate(ci_width = upper_95 - lower_95) %>%
+  group_by(model) %>%
+  summarise(
+    mean_ci_width = mean(ci_width),
+    median_ci_width = median(ci_width),
+    sd_ci_width = sd(ci_width)
+  )
+
+print("Average uncertainty (95% CI width) by model:")
+print(uncertainty_comparison)
+
+# Visualize uncertainty by model
+plot_uncertainty <- all_summaries %>%
+  mutate(ci_width = upper_95 - lower_95) %>%
+  ggplot(aes(x = model, y = ci_width, fill = model)) +
+  geom_violin(alpha = 0.6) +
+  geom_boxplot(width = 0.2, alpha = 0.8, outlier.alpha = 0.3) +
+  labs(
+    title = "Posterior Uncertainty in Country Intercepts by Model",
+    subtitle = "Width of 95% credible intervals",
+    x = "Model",
+    y = "95% CI Width"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+print(plot_uncertainty)
+
+# ============================================================================
+# 7. SHRINKAGE COMPARISON ACROSS MODELS
+# ============================================================================
+
+# Compare how much countries are pulled toward the mean in each model
+shrinkage_data <- intercepts_wide %>%
+  mutate(
+    abs_econ = abs(Economic),
+    abs_political = abs(Political),
+    abs_need = abs(Need),
+    abs_combined = abs(Combined),
+    mean_abs = (abs_econ + abs_political + abs_need + abs_combined) / 4
+  ) %>%
+  arrange(desc(mean_abs))
+
+# Countries with largest absolute intercepts
+print("Countries with largest average absolute intercepts:")
+print(shrinkage_data %>% 
+        select(statenme, Economic, Political, Need, Combined, mean_abs) %>%
+        head(10))
+
+plot_shrinkage <- shrinkage_data %>%
+  slice_max(mean_abs, n = 20) %>%
+  pivot_longer(cols = c(Economic, Political, Need, Combined),
+               names_to = "model", values_to = "intercept") %>%
+  mutate(country_num = as.numeric(factor(reorder(statenme, mean_abs)))) %>%
+  ggplot(aes(y = country_num, x = intercept, color = model)) +
+  geom_point(size = 3, alpha = 0.7, position = position_dodge(width = 0.5)) +
+  geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.5) +
+  scale_y_continuous(
+    breaks = seq_along(unique(shrinkage_data %>% 
+                               slice_max(mean_abs, n = 20) %>% 
+                               pull(statenme))),
+    labels = shrinkage_data %>% 
+      slice_max(mean_abs, n = 20) %>% 
+      arrange(desc(mean_abs)) %>% 
+      pull(statenme)
+  ) +
+  viridis::scale_color_viridis(option = "magma", discrete = TRUE, 
+                               begin = 0.2, end = 0.9) +
+  labs(
+    title = "Countries with Largest Intercepts Across Models",
+    subtitle = "Top 20 by average absolute intercept",
+    x = "Country Intercept",
+    y = "Country",
+    color = "Model"
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "bottom",
+    axis.text.y = element_text(size = 8)
+  )
+
+print(plot_shrinkage)
+
+# ============================================================================
+# 8. CLASSIFICATION OF COUNTRIES BY MODEL AGREEMENT
+# ============================================================================
+
+# Classify countries by sign consistency across models
+country_classification <- intercepts_wide %>%
+  mutate(
+    all_positive = Economic > 0 & Political > 0 & Need > 0 & Combined > 0,
+    all_negative = Economic < 0 & Political < 0 & Need < 0 & Combined < 0,
+    mixed = !all_positive & !all_negative,
+    classification = case_when(
+      all_positive ~ "Consistently High",
+      all_negative ~ "Consistently Low",
+      TRUE ~ "Mixed"
+    )
+  )
+
+# Summary by classification
+table(country_classification$classification)
+
+# Visualize classification
+plot_classification <- country_classification %>%
+  pivot_longer(cols = c(Economic, Political, Need, Combined),
+               names_to = "model", values_to = "intercept") %>%
+  ggplot(aes(x = model, y = intercept, group = statenme, 
+             color = classification)) +
+  geom_line(alpha = 0.4) +
+  geom_point(alpha = 0.5, size = 2) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  facet_wrap(~classification) +
+  scale_color_manual(values = c("Consistently High" = "#B2182B",
+                                 "Consistently Low" = "#2166AC",
+                                 "Mixed" = "#FDB863")) +
+  labs(
+    title = "Country Classifications by Intercept Consistency",
+    x = "Model",
+    y = "Country Intercept",
+    color = "Classification"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "bottom"
+  )
+
+print(plot_classification)
+
+# Print countries in each category
+print("\nConsistently High countries:")
+print(country_classification %>% 
+        filter(all_positive) %>% 
+        arrange(desc(Combined)) %>% 
+        select(statenme, Economic, Political, Need, Combined))
+
+print("\nConsistently Low countries:")
+print(country_classification %>% 
+        filter(all_negative) %>% 
+        arrange(Combined) %>% 
+        select(statenme, Economic, Political, Need, Combined))
+
+# ============================================================================
+# 9. STATISTICAL TESTS OF CORRELATION SIGNIFICANCE
+# ============================================================================
+
+# Test correlations using posterior draws
+correlation_tests <- list()
+
+model_pairs <- list(
+  c("Economic", "Political"),
+  c("Economic", "Need"),
+  c("Economic", "Combined"),
+  c("Political", "Need"),
+  c("Political", "Combined"),
+  c("Need", "Combined")
+)
+
+for (pair in model_pairs) {
+  model1_draws <- all_draws %>% filter(model == pair[1])
+  model2_draws <- all_draws %>% filter(model == pair[2])
+  
+  # Calculate correlation for each posterior draw
+  cors <- model1_draws %>%
+    inner_join(model2_draws, by = c("statenme", ".draw"), 
+               suffix = c("_1", "_2")) %>%
+    group_by(.draw) %>%
+    summarise(correlation = cor(intercept_1, intercept_2))
+  
+  correlation_tests[[paste(pair[1], "vs", pair[2])]] <- cors %>%
+    summarise(
+      mean_cor = mean(correlation),
+      median_cor = median(correlation),
+      lower_95 = quantile(correlation, 0.025),
+      upper_95 = quantile(correlation, 0.975),
+      prob_positive = mean(correlation > 0),
+      prob_high = mean(correlation > 0.7)
+    )
+}
+
+correlation_test_results <- bind_rows(correlation_tests, .id = "comparison")
+
+print("\nPosterior distributions of correlations between models:")
+print(correlation_test_results)
+
+# ============================================================================
+# 10. SUMMARY STATISTICS
+# ============================================================================
+
+summary_stats <- all_summaries %>%
+  group_by(model) %>%
+  summarise(
+    n_countries = n(),
+    mean_intercept = mean(estimate),
+    sd_intercept = sd(estimate),
+    min_intercept = min(estimate),
+    max_intercept = max(estimate),
+    range = max_intercept - min_intercept,
+    n_positive = sum(estimate > 0),
+    n_negative = sum(estimate < 0),
+    prop_positive = n_positive / n_countries
+  )
+
+print("\nSummary statistics by model:")
+print(summary_stats)
+
+```
+
+## Marginal Effects
+
+```{r misc-code}
+
+# Posterior Predicted Average
+test.1 <- brms::pp_average(model.econ, model.need,
+                           method = "posterior_epred",
+                           newdata = newdata,
+                           allow_new_levels = TRUE)
+
+# Posterior average for individual coefficients
+test.2 <- brms::posterior_average(model.1, model.2,
+                                  ndraws = 1e4, 
+                                  weights = "waic")
+
+
+
+
+
+marginaleffects::plot_slopes(model.combined,
+                             variables = "infant_mortality_rate_z",
+                             condition = "imports_from_us_z") 
+  
+
+test.slopes <- slopes(model.combined,
+                      variables = c("infant_mortality_rate_z"),
+                      condition = c("imports_from_us_z"),
+                      conf_level = 0.95,
+                      #type = "response",
+                      newdata = datagrid(
+                        imports_from_us_z = seq(2, 10, length.out = 20),
+                        infant_mortality_rate_z = c(30))) |>
+  posterior_draws()
+
+mean.slopes <- test.slopes |> 
+  dplyr::group_by(imports_from_us_z) |> 
+  dplyr::summarise(mean_draw = mean(draw)) |> 
+  dplyr::ungroup() |> 
+  dplyr::mutate(imports_from_us_z = round(imports_from_us_z, 2))
+
+# Spaghetti plot
+ggplot() +
+ geom_line(data = test.slopes, aes(x = imports_from_us_z, y = draw, group = drawid), alpha = 0.1, color = "dodgerblue") +
+ stat_summary(data = test.slopes, aes(x = imports_from_us_z, y = draw), fun = mean, geom = "line", color = "black", size = 1.5) 
+
+# Lineribbon plot
+ggplot(test.slopes, aes(x = imports_from_us_z, y = draw)) +
+  ggdist::stat_lineribbon(.width = c(0.5, 0.89, 0.95), alpha = 0.5) +
+  scale_fill_brewer(palette = "reds") 
+
+```
+
+
