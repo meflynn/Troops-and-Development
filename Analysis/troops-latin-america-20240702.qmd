@@ -225,8 +225,30 @@ iadb.data <- readr::read_csv(here::here("Data/Raw Data/the-database-of-political
                 year = as.numeric(year),
                 ccode = countrycode::countrycode(countryname,
                                                  origin = "country.name",
-                                                 destination = "cown")) |> 
-  dplyr::select(countryname, ccode, year, execrlc)
+                                                 destination = "cown"),
+                execrlc = factor(execrlc,
+                                 levels = c("Left", "Center", "Right")),
+                execrlc_num = case_when(
+                  execrlc == "Left" ~ -1,
+                  execrlc == "Center" ~ 0,
+                  execrlc == "Right" ~ 1,
+                  TRUE ~ NA
+                )) |> 
+  dplyr::mutate(
+    us_exec_party_code = case_when(
+      year >= 1998 & year <= 2000 ~ -1,  # Clinton (D)
+      year >= 2001 & year <= 2008 ~  1,  # Bush (R)
+      year >= 2009 & year <= 2016 ~ -1,  # Obama (D)
+      year >= 2017 & year <= 2020 ~  1,  # Trump (R)
+      year >= 2021 & year <= 2024 ~ -1,  # Biden (D)
+      TRUE ~ NA_real_
+    ),
+    executive_difference = execrlc_num - us_exec_party_code,
+    executive_alignment = case_when( # Dummy to indicate if parties are roughly the same
+      execrlc_num == us_exec_party_code ~ 1,
+      TRUE ~ 0
+    )) |> 
+  dplyr::select(countryname, ccode, year, execrlc, executive_difference, execrlc_num, executive_alignment)
 
 
 # BTH/NH Deployment Indicator
@@ -289,7 +311,7 @@ data.analysis <- peacesciencer::create_stateyears(system = "cow", subset_years =
       str_detect(countryname, "St. Lucia") & year >= 2013 ~ 1,
       TRUE ~ 0
     ),
-    gdppc = gdp_constant/population_total) |>
+    gdppc = gdp_constant/population_total) |> # Ensure inflation adjusted
   group_by(ccode) |> 
   dplyr::mutate(deployment_cumsum = cumsum(deployment),
                 deployment_lead_1 = dplyr::lead(deployment, n = 1L),
@@ -313,7 +335,10 @@ data.analysis <- peacesciencer::create_stateyears(system = "cow", subset_years =
     TRUE ~ 0
   )) |> 
   dplyr::filter(ccode != 70) |> 
-  dplyr::select(!contains("country.")) |> 
+  dplyr::select(!contains("country.")) |>
+  dplyr::select(-c(Country, region.y, region, countryname)) |> 
+  dplyr::rename("countryname" = "cw_name",
+                "region" = "region.x") |> 
   dplyr::mutate(row_index = row_number())
 
 
@@ -554,7 +579,7 @@ model.econ.l1 <- brm(
 )
  
 model.political.l1 <- brm(
-  deployment_lead_1 ~ v2x_polyarchy_z + un_distance_z + alba_member + iraq_coalition + (1|countryname),
+  deployment_lead_1 ~ v2x_polyarchy_z + un_distance_z + executive_alignment + iraq_coalition + (1|countryname),
   data       = data.analysis,
   prior      = PRIORS.FIXED,
   family     = bernoulli(link = "logit"),
@@ -593,7 +618,7 @@ model.need.l1 <- brm(
 
 model.combined.l1 <- brm(
   deployment_lead_1 ~ gdppc_z + imports_from_us_z + population_total_z + population_urban_z +
-    v2x_polyarchy_z + un_distance_z + alba_member + iraq_coalition +
+    v2x_polyarchy_z + un_distance_z + executive_alignment + iraq_coalition +
     infant_mortality_rate_z + homicide_rate_z + education_spending_z + healthcare_expenditures_z  + (1|countryname),
   data       = data.analysis.nested,
   prior      = PRIORS.FIXED,
@@ -614,7 +639,7 @@ model.combined.l1 <- brm(
 
 model.full.l1 <- brm(
   deployment_lead_1 ~ gdppc_z + imports_from_us_z + population_total_z + population_urban_z +
-    v2x_polyarchy_z + un_distance_z + alba_member + iraq_coalition +
+    v2x_polyarchy_z + un_distance_z + executive_alignment + iraq_coalition +
     infant_mortality_rate_z + homicide_rate_z + education_spending_z + healthcare_expenditures_z +
     s(year) + (1 | countryname) + gp(capital.lat, capital.lon),
   data       = data.analysis,
@@ -675,7 +700,7 @@ model.econ.l2 <- brm(
 )
  
 model.political.l2 <- brm(
-  deployment_lead_2 ~ v2x_polyarchy_z + un_distance_z + alba_member + iraq_coalition + (1|countryname),
+  deployment_lead_2 ~ v2x_polyarchy_z + un_distance_z + executive_alignment + iraq_coalition + (1|countryname),
   data       = data.analysis,
   prior      = PRIORS.FIXED,
   family     = bernoulli(link = "logit"),
@@ -713,7 +738,7 @@ model.need.l2 <- brm(
 
 model.combined.l2 <- brm(
   deployment_lead_2 ~ gdppc_z + imports_from_us_z + population_total_z + population_urban_z +
-    v2x_polyarchy_z + un_distance_z + alba_member + iraq_coalition +
+    v2x_polyarchy_z + un_distance_z + executive_alignment + iraq_coalition +
     infant_mortality_rate_z + homicide_rate_z + education_spending_z + healthcare_expenditures_z  + (1|countryname),
   data       = data.analysis.nested,
   prior      = PRIORS.FIXED,
@@ -735,7 +760,7 @@ model.combined.l2 <- brm(
  
 model.full.l2 <- brm(
   deployment_lead_2 ~ gdppc_z + imports_from_us_z + population_total_z + population_urban_z +
-    v2x_polyarchy_z + un_distance_z + alba_member + iraq_coalition +
+    v2x_polyarchy_z + un_distance_z + executive_alignment + iraq_coalition +
     infant_mortality_rate_z + homicide_rate_z + education_spending_z + healthcare_expenditures_z +
     s(year) + (1 | countryname) + gp(capital.lat, capital.lon),
   data       = data.analysis,
@@ -798,7 +823,7 @@ model.econ.nested.l1 <- brm(
 )
  
 model.political.nested.l1 <- brm(
-  deployment_lead_1 ~ v2x_polyarchy_z + un_distance_z + alba_member + iraq_coalition  + (1|countryname),
+  deployment_lead_1 ~ v2x_polyarchy_z + un_distance_z + executive_alignment + iraq_coalition  + (1|countryname),
   data       = data.analysis.nested,
   prior      = PRIORS.FIXED,
   family     = bernoulli(link = "logit"),
@@ -836,7 +861,7 @@ model.need.nested.l1 <- brm(
 
 model.combined.nested.l1 <- brm(
   deployment_lead_1 ~ gdppc_z + imports_from_us_z + population_total_z + population_urban_z +
-    v2x_polyarchy_z + un_distance_z + alba_member + iraq_coalition +
+    v2x_polyarchy_z + un_distance_z + executive_alignment + iraq_coalition +
     infant_mortality_rate_z + homicide_rate_z + education_spending_z + healthcare_expenditures_z  + (1|countryname),
   data       = data.analysis.nested,
   prior      = PRIORS.FIXED,
@@ -856,7 +881,7 @@ model.combined.nested.l1 <- brm(
 
 model.full.nested.l1 <- brm(
   deployment_lead_1 ~ gdppc_z + imports_from_us_z + population_total_z + population_urban_z +
-    v2x_polyarchy_z + un_distance_z + alba_member + iraq_coalition +
+    v2x_polyarchy_z + un_distance_z + executive_alignment + iraq_coalition +
     infant_mortality_rate_z + homicide_rate_z + education_spending_z + healthcare_expenditures_z +
     s(year) + (1 | countryname) + gp(capital.lat, capital.lon),
   data       = data.analysis.nested,
@@ -917,7 +942,7 @@ model.econ.nested.l2 <- brm(
 )
  
 model.political.nested.l2 <- brm(
-  deployment_lead_2 ~ v2x_polyarchy_z + un_distance_z + alba_member + iraq_coalition  + (1|countryname),
+  deployment_lead_2 ~ v2x_polyarchy_z + un_distance_z + executive_alignment + iraq_coalition  + (1|countryname),
   data       = data.analysis.nested,
   prior      = PRIORS.FIXED,
   family     = bernoulli(link = "logit"),
@@ -954,7 +979,7 @@ model.need.nested.l2 <- brm(
  
 model.combined.nested.l2 <- brm(
   deployment_lead_2 ~ gdppc_z + imports_from_us_z + population_total_z + population_urban_z +
-    v2x_polyarchy_z + un_distance_z + alba_member + iraq_coalition +
+    v2x_polyarchy_z + un_distance_z + executive_alignment + iraq_coalition +
     infant_mortality_rate_z + homicide_rate_z + education_spending_z + healthcare_expenditures_z  + (1|countryname),
   data       = data.analysis.nested,
   prior      = PRIORS.FIXED,
@@ -974,7 +999,7 @@ model.combined.nested.l2 <- brm(
  
 model.full.nested.l2 <- brm(
   deployment_lead_2 ~ gdppc_z + imports_from_us_z + population_total_z + population_urban_z +
-    v2x_polyarchy_z + un_distance_z + alba_member + iraq_coalition +
+    v2x_polyarchy_z + un_distance_z + executive_alignment + iraq_coalition +
     infant_mortality_rate_z + homicide_rate_z + education_spending_z + healthcare_expenditures_z +
     s(year) + (1 | countryname) + gp(capital.lat, capital.lon),
   data       = data.analysis.nested,
