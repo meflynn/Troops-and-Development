@@ -74,6 +74,19 @@ set.seed(65502)
 #| warning: false
 
 
+# Get CPI data to adjust for inflation
+cpi.data <- tidyquant::tq_get("CPIAUCSL",
+                              "economic.data",
+                              from = "1999-01-01",
+                              to = "2025-01-01") |> 
+  dplyr::mutate(year = str_extract(date, "\\d{4}")) |> 
+  dplyr::group_by(year) |> 
+  dplyr::summarise(price = mean(price)) |> 
+  dplyr::ungroup() |> 
+  dplyr::mutate(cpi = price / price[year==2015]) |> 
+  dplyr::select(year, cpi) |> 
+  dplyr::mutate(across(everything(),
+                       ~ as.numeric(.x)))
 
 # Clean exports to US IMF data
 exports.to.us <- readr::read_csv(here::here("Data/Raw Data/imf-dots/Imports_from_Counterpart_Countries.csv")) |> 
@@ -98,7 +111,35 @@ imports.from.us <- readr::read_csv(here::here("Data/Raw Data/imf-dots/Exports_to
   dplyr::select(country, ccode, region, year, imports_from_us) |> 
   dplyr::group_by(country) |> 
   dplyr::mutate(imports_from_us = as.numeric(imports_from_us)) |> 
-  dplyr::filter(year >= 2000)
+  dplyr::filter(year >= 2000) |> 
+  left_join(cpi.data, by = "year") |> 
+  dplyr::mutate(imports_from_us_constant = imports_from_us/cpi)
+
+
+
+
+
+
+# BEA US FDI Data to world
+fdi.data <- read_csv(here::here("Data/Raw Data/bea-us-fdi-to-world.csv")) |> 
+  slice(-c(1:6)) |> 
+  dplyr::select(1:28) |> 
+  tidyr::pivot_longer(cols = c(2:28),
+                      names_to = "year",
+                      values_to = "fdi_total") |> 
+  dplyr::rename("countryname" = 1) |> 
+  group_by(countryname) |> 
+  dplyr::mutate(year = seq(1, length(year), 1),
+                year = year + 1998,
+                fdi_total = as.numeric(fdi_total)) |> 
+  left_join(cpi.data, by = "year") |> 
+  ungroup() |> 
+  dplyr::mutate(fdi_total_constant = fdi_total/cpi,
+                ccode = countrycode::countrycode(countryname,
+                                                 origin = "country.name",
+                                                 destination = "cown")) |> 
+  dplyr::filter(countryname != "Other")
+
 
 
 options(digits = 3)
@@ -259,8 +300,11 @@ dhs.2009.asylum <- readxl::read_xls(here::here("Data/Raw Data/DHS Immigration Da
   dplyr::rename("countryname" = "Total") |> 
   tidyr::pivot_longer(cols = 2:11) |> 
   group_by(countryname) |> 
-  dplyr::mutate(year = seq(2000,2009)) |> 
-  dplyr::mutate(value = as.numeric(value)) |> 
+  dplyr::mutate(year = seq(2000,2009)) |>
+  dplyr::mutate(value = gsub("-", "0", value),
+                value = gsub("D", NA_character_, value),
+                value = gsub("X", NA_character_, value),
+                value = as.numeric(value)) |> 
   dplyr::rename("asylum_grants" = "value")
 
 # Refugee grants
@@ -270,7 +314,10 @@ dhs.2009.refugee <- readxl::read_xls(here::here("Data/Raw Data/DHS Immigration D
   tidyr::pivot_longer(cols = 2:11) |> 
   group_by(countryname) |> 
   dplyr::mutate(year = seq(2000,2009)) |> 
-  dplyr::mutate(value = as.numeric(value)) |> 
+  dplyr::mutate(value = gsub("-", "0", value),
+                value = gsub("D", NA_character_, value),
+                value = gsub("X", NA_character_, value),
+                value = as.numeric(value)) |>
   dplyr::rename("refugee_grants" = "value")
 
 # DHS Immigration Data for 2019
@@ -281,7 +328,10 @@ dhs.2019.asylum <- readxl::read_xlsx(here::here("Data/Raw Data/DHS Immigration D
   tidyr::pivot_longer(cols = 2:11) |> 
   group_by(countryname) |> 
   dplyr::mutate(year = seq(2010,2019)) |> 
-  dplyr::mutate(value = as.numeric(value)) |> 
+  dplyr::mutate(value = gsub("-", "0", value),
+                value = gsub("D", NA_character_, value),
+                value = gsub("X", NA_character_, value),
+                value = as.numeric(value)) |>
   dplyr::rename("asylum_grants" = "value")
 
 # Asylum grants
@@ -291,7 +341,10 @@ dhs.2019.refugee <- readxl::read_xlsx(here::here("Data/Raw Data/DHS Immigration 
   tidyr::pivot_longer(cols = 2:11) |> 
   group_by(countryname) |> 
   dplyr::mutate(year = seq(2010,2019)) |> 
-  dplyr::mutate(value = as.numeric(value)) |> 
+  dplyr::mutate(value = gsub("-", "0", value),
+                value = gsub("D", NA_character_, value),
+                value = gsub("X", NA_character_, value),
+                value = as.numeric(value)) |> 
   dplyr::rename("refugee_grants" = "value")
 
 # DHS Immigration Data for 2019
@@ -302,7 +355,10 @@ dhs.2023.asylum <- readxl::read_xlsx(here::here("Data/Raw Data/DHS Immigration D
   tidyr::pivot_longer(cols = 2:11) |> 
   group_by(countryname) |> 
   dplyr::mutate(year = seq(2013,2022)) |> 
-  dplyr::mutate(value = as.numeric(value)) |> 
+  dplyr::mutate(value = gsub("-", "0", value),
+                value = gsub("D", NA_character_, value),
+                value = gsub("X", NA_character_, value),
+                value = as.numeric(value)) |>
   dplyr::filter(year > 2019) |> 
   dplyr::rename("asylum_grants" = "value")
 
@@ -315,7 +371,10 @@ dhs.2023.refugee <- readxl::read_xlsx(here::here("Data/Raw Data/DHS Immigration 
   tidyr::pivot_longer(cols = 2:11) |> 
   group_by(countryname) |> 
   dplyr::mutate(year = seq(2013,2022)) |> 
-  dplyr::mutate(value = as.numeric(value)) |> 
+  dplyr::mutate(value = gsub("-", "0", value),
+                value = gsub("D", NA_character_, value),
+                value = gsub("X", NA_character_, value),
+                value = as.numeric(value)) |> 
   dplyr::filter(year > 2019) |> 
   dplyr::rename("refugee_grants" = "value")
 
@@ -330,11 +389,7 @@ asylum.data.combined <- bind_rows(dhs.2009.asylum, dhs.2019.asylum, dhs.2023.asy
   left_join(dhs.2009.refugee) |> 
   left_join(dhs.2019.refugee) |> 
   left_join(dhs.2023.refugee) |> 
-  dplyr::mutate(refugee_grants = case_when(
-    is.na(refugee_grants) ~ 0,
-    TRUE ~ refugee_grants
-  ),
-  asylum_refugee_total = asylum_grants + refugee_grants) |> 
+  dplyr::mutate(asylum_refugee_total = asylum_grants + refugee_grants) |> 
   dplyr::select(-name)
 
 
@@ -375,12 +430,14 @@ data.analysis <- peacesciencer::create_stateyears(system = "cow", subset_years =
   left_join(iadb.data, by = c("ccode", "year")) |> 
   left_join(exports.to.us, by = c("ccode", "year")) |>
   left_join(imports.from.us, by = c("ccode", "year")) |>
+  left_join(fdi.data, by = c("ccode", "year")) |> 
   left_join(un.data, by = c("ccode", "year")) |>
   left_join(deployment.indicator, by = c("ccode", "year")) |> 
   left_join(iraq.contributions, by = c("ccode", "year")) |>
   left_join(homicide.data, by = c("ccode", "year")) |> 
   left_join(asylum.data.combined, by = c("ccode", "year")) |> 
   left_join(centroid.df, by = "ccode") |>
+  dplyr::select(-"countryname") |> 
   dplyr::rename("countryname" = "cw_name") |> 
   mutate(deployment = case_when(
     is.na(deployment) ~ 0, 
@@ -420,10 +477,10 @@ data.analysis <- peacesciencer::create_stateyears(system = "cow", subset_years =
   group_by(ccode, deployment_cumsum) |> 
   dplyr::mutate(time_since_deployment = seq_along(deployment_cumsum) - 1) |>
   ungroup() |> 
-  dplyr::mutate(across(c(exports_to_us, imports_from_us, v2x_polyarchy, gdp_constant, gdppc, infant_mortality_rate, population_total, population_urban, education_spending, healthcare_expenditures, population_rural, un_distance, USAgree, unemployment_rate, time_since_deployment, homicide_rate, asylum_grants, refugee_grants, asylum_refugee_total), 
+  dplyr::mutate(across(c(exports_to_us, imports_from_us_constant, v2x_polyarchy, gdp_constant, gdppc, infant_mortality_rate, population_total, population_urban, education_spending, healthcare_expenditures, population_rural, un_distance, USAgree, unemployment_rate, time_since_deployment, homicide_rate, asylum_grants, refugee_grants, asylum_refugee_total), 
                        ~arm::rescale(.x),
                        .names = "{.col}_z"),
-                across(c(exports_to_us, imports_from_us, gdppc, gdp_constant, population_total, infant_mortality_rate),
+                across(c(exports_to_us, imports_from_us_constant, gdppc, gdp_constant, population_total, infant_mortality_rate),
                        ~log(.x),
                        .names = "log_{.col}")) |>
   dplyr::mutate(across(c(iraq_coalition, dead, wounded, troopstotal, troopspeak),
@@ -449,8 +506,8 @@ data.analysis <- peacesciencer::create_stateyears(system = "cow", subset_years =
 #   Full adds: s(year) + (1|countryname) + gp(capital.lat, capital.lon)
 data.analysis.nested <- data.analysis |> 
   drop_na(deployment_lead_1, deployment_lead_2,
-          gdppc_z, imports_from_us_z, population_total_z, population_urban_z,
-          v2x_polyarchy_z, un_distance_z, alba_member, iraq_coalition,
+          gdppc_z, imports_from_us_constant_z, population_total_z, population_urban_z,
+          v2x_polyarchy_z, un_distance_z, executive_alignment, asylum_refugee_total_z,
           infant_mortality_rate_z, homicide_rate_z, education_spending_z, healthcare_expenditures_z,
           capital.lat, capital.lon) |> 
   dplyr::mutate(row_index = row_number())
@@ -659,7 +716,7 @@ model.intercepts.l1 <- brm(
 )
 
 model.econ.l1 <- brm(
-  deployment_lead_1 ~ gdppc_z + imports_from_us_z + population_total_z + population_urban_z + (1|countryname),
+  deployment_lead_1 ~ gdppc_z + imports_from_us_constant_z + population_total_z + population_urban_z + (1|countryname),
   data       = data.analysis,
   prior      = PRIORS.FIXED,
   family     = bernoulli(link = "logit"),
@@ -715,10 +772,10 @@ model.need.l1 <- brm(
  
 
 model.combined.l1 <- brm(
-  deployment_lead_1 ~ gdppc_z + imports_from_us_z + population_total_z + population_urban_z +
-    v2x_polyarchy_z + un_distance_z + executive_alignment + refugee_asylum_total_z +
+  deployment_lead_1 ~ gdppc_z + imports_from_us_constant_z + population_total_z + population_urban_z +
+    v2x_polyarchy_z + un_distance_z + executive_alignment + asylum_refugee_total_z +
     infant_mortality_rate_z + homicide_rate_z + education_spending_z + healthcare_expenditures_z  + (1|countryname),
-  data       = data.analysis.nested,
+  data       = data.analysis,
   prior      = PRIORS.FIXED,
   family     = bernoulli(link = "logit"),
   chains     = CHAINS,
@@ -736,8 +793,8 @@ model.combined.l1 <- brm(
 
 
 model.full.l1 <- brm(
-  deployment_lead_1 ~ gdppc_z + imports_from_us_z + population_total_z + population_urban_z +
-    v2x_polyarchy_z + un_distance_z + executive_alignment + refugee_asylum_total_z +
+  deployment_lead_1 ~ gdppc_z + imports_from_us_constant_z + population_total_z + population_urban_z +
+    v2x_polyarchy_z + un_distance_z + executive_alignment + asylum_refugee_total_z +
     infant_mortality_rate_z + homicide_rate_z + education_spending_z + healthcare_expenditures_z +
     s(year) + (1 | countryname) + gp(capital.lat, capital.lon),
   data       = data.analysis,
@@ -780,7 +837,7 @@ model.intercepts.l2 <- brm(
 )
 
 model.econ.l2 <- brm(
-  deployment_lead_2 ~ gdppc_z + imports_from_us_z + population_total_z + population_urban_z + (1|countryname),
+  deployment_lead_2 ~ gdppc_z + imports_from_us_constant_z + population_total_z + population_urban_z + (1|countryname),
   data       = data.analysis,
   prior      = PRIORS.FIXED,
   family     = bernoulli(link = "logit"),
@@ -835,8 +892,8 @@ model.need.l2 <- brm(
  
 
 model.combined.l2 <- brm(
-  deployment_lead_2 ~ gdppc_z + imports_from_us_z + population_total_z + population_urban_z +
-    v2x_polyarchy_z + un_distance_z + executive_alignment + refugee_asylum_total_z +
+  deployment_lead_2 ~ gdppc_z + imports_from_us_constant_z + population_total_z + population_urban_z +
+    v2x_polyarchy_z + un_distance_z + executive_alignment + asylum_refugee_total_z +
     infant_mortality_rate_z + homicide_rate_z + education_spending_z + healthcare_expenditures_z  + (1|countryname),
   data       = data.analysis.nested,
   prior      = PRIORS.FIXED,
@@ -857,8 +914,8 @@ model.combined.l2 <- brm(
 
  
 model.full.l2 <- brm(
-  deployment_lead_2 ~ gdppc_z + imports_from_us_z + population_total_z + population_urban_z +
-    v2x_polyarchy_z + un_distance_z + executive_alignment + refugee_asylum_total_z +
+  deployment_lead_2 ~ gdppc_z + imports_from_us_constant_z + population_total_z + population_urban_z +
+    v2x_polyarchy_z + un_distance_z + executive_alignment + asylum_refugee_total_z +
     infant_mortality_rate_z + homicide_rate_z + education_spending_z + healthcare_expenditures_z +
     s(year) + (1 | countryname) + gp(capital.lat, capital.lon),
   data       = data.analysis,
@@ -903,7 +960,7 @@ model.intercepts.nested.l1 <- brm(
 )
 
 model.econ.nested.l1 <- brm(
-  deployment_lead_1 ~ gdppc_z + imports_from_us_z + population_total_z + population_urban_z  + (1|countryname),
+  deployment_lead_1 ~ gdppc_z + imports_from_us_constant_z + population_total_z + population_urban_z  + (1|countryname),
   data       = data.analysis.nested,
   prior      = PRIORS.FIXED,
   family     = bernoulli(link = "logit"),
@@ -921,7 +978,7 @@ model.econ.nested.l1 <- brm(
 )
  
 model.political.nested.l1 <- brm(
-  deployment_lead_1 ~ v2x_polyarchy_z + un_distance_z + executive_alignment + refugee_asylum_total_z  + (1|countryname),
+  deployment_lead_1 ~ v2x_polyarchy_z + un_distance_z + executive_alignment + asylum_refugee_total_z  + (1|countryname),
   data       = data.analysis.nested,
   prior      = PRIORS.FIXED,
   family     = bernoulli(link = "logit"),
@@ -958,8 +1015,8 @@ model.need.nested.l1 <- brm(
  
 
 model.combined.nested.l1 <- brm(
-  deployment_lead_1 ~ gdppc_z + imports_from_us_z + population_total_z + population_urban_z +
-    v2x_polyarchy_z + un_distance_z + executive_alignment + refugee_asylum_total_z +
+  deployment_lead_1 ~ gdppc_z + imports_from_us_constant_z + population_total_z + population_urban_z +
+    v2x_polyarchy_z + un_distance_z + executive_alignment + asylum_refugee_total_z +
     infant_mortality_rate_z + homicide_rate_z + education_spending_z + healthcare_expenditures_z  + (1|countryname),
   data       = data.analysis.nested,
   prior      = PRIORS.FIXED,
@@ -978,8 +1035,8 @@ model.combined.nested.l1 <- brm(
 )
 
 model.full.nested.l1 <- brm(
-  deployment_lead_1 ~ gdppc_z + imports_from_us_z + population_total_z + population_urban_z +
-    v2x_polyarchy_z + un_distance_z + executive_alignment + refugee_asylum_total_z +
+  deployment_lead_1 ~ gdppc_z + imports_from_us_constant_z + population_total_z + population_urban_z +
+    v2x_polyarchy_z + un_distance_z + executive_alignment + asylum_refugee_total_z +
     infant_mortality_rate_z + homicide_rate_z + education_spending_z + healthcare_expenditures_z +
     s(year) + (1 | countryname) + gp(capital.lat, capital.lon),
   data       = data.analysis.nested,
@@ -1022,7 +1079,7 @@ model.intercepts.nested.l2 <- brm(
 )
 
 model.econ.nested.l2 <- brm(
-  deployment_lead_2 ~ gdppc_z + imports_from_us_z + population_total_z + population_urban_z  + (1|countryname),
+  deployment_lead_2 ~ gdppc_z + imports_from_us_constant_z + population_total_z + population_urban_z  + (1|countryname),
   data       = data.analysis.nested,
   prior      = PRIORS.FIXED,
   family     = bernoulli(link = "logit"),
@@ -1040,7 +1097,7 @@ model.econ.nested.l2 <- brm(
 )
  
 model.political.nested.l2 <- brm(
-  deployment_lead_2 ~ v2x_polyarchy_z + un_distance_z + executive_alignment + refugee_asylum_total_z  + (1|countryname),
+  deployment_lead_2 ~ v2x_polyarchy_z + un_distance_z + executive_alignment + asylum_refugee_total_z  + (1|countryname),
   data       = data.analysis.nested,
   prior      = PRIORS.FIXED,
   family     = bernoulli(link = "logit"),
@@ -1076,8 +1133,8 @@ model.need.nested.l2 <- brm(
 )
  
 model.combined.nested.l2 <- brm(
-  deployment_lead_2 ~ gdppc_z + imports_from_us_z + population_total_z + population_urban_z +
-    v2x_polyarchy_z + un_distance_z + executive_alignment + refugee_asylum_total_z +
+  deployment_lead_2 ~ gdppc_z + imports_from_us_constant_z + population_total_z + population_urban_z +
+    v2x_polyarchy_z + un_distance_z + executive_alignment + asylum_refugee_total_z +
     infant_mortality_rate_z + homicide_rate_z + education_spending_z + healthcare_expenditures_z  + (1|countryname),
   data       = data.analysis.nested,
   prior      = PRIORS.FIXED,
@@ -1096,8 +1153,8 @@ model.combined.nested.l2 <- brm(
 )
  
 model.full.nested.l2 <- brm(
-  deployment_lead_2 ~ gdppc_z + imports_from_us_z + population_total_z + population_urban_z +
-    v2x_polyarchy_z + un_distance_z + executive_alignment + refugee_asylum_total_z +
+  deployment_lead_2 ~ gdppc_z + imports_from_us_constant_z + population_total_z + population_urban_z +
+    v2x_polyarchy_z + un_distance_z + executive_alignment + asylum_refugee_total_z +
     infant_mortality_rate_z + homicide_rate_z + education_spending_z + healthcare_expenditures_z +
     s(year) + (1 | countryname) + gp(capital.lat, capital.lon),
   data       = data.analysis.nested,
@@ -1140,13 +1197,13 @@ mod.list <- list("Intercepts" = model.intercepts.l1,
 # Set coefficient names 
 coef.names <- c("b_Intercept" = "Intercept",
                 "b_gdppc_z" = "GDP Per Capita",
-                "b_imports_from_us_z" = "Imports from US",
+                "b_imports_from_us_constant_z" = "Imports from US",
                 "b_population_total_z" = "Total Population",
                 "b_population_urban_z" = "Percent Urban Population",
                 "b_v2x_polyarchy_z" = "Polyarchy Score",
                 "b_un_distance_z" = "UN Voting Distance",
                 "b_executive_alignment" = "Executive Alignment",
-                "b_refugee_asylum_total_z" = "Total Asylum and Refugee Grants",
+                "b_asylum_refugee_total_z" = "Total Asylum and Refugee Grants",
                 "b_infant_mortality_rate_z" = "Infant Mortality Rate",
                 "b_homicide_rate_z" = "Homicide Rate",
                 "b_healthcare_expenditures_z" = "Healthcare Expenditures",
@@ -1245,13 +1302,13 @@ mod.list <- list("Intercepts" = model.intercepts.nested.l1,
 # Set coefficient names 
 coef.names <- c("b_Intercept" = "Intercept",
                 "b_gdppc_z" = "GDP Per Capita",
-                "b_imports_from_us_z" = "Imports from US",
+                "b_imports_from_us_constant_z" = "Imports from US",
                 "b_population_total_z" = "Total Population",
                 "b_population_urban_z" = "Percent Urban Population",
                 "b_v2x_polyarchy_z" = "Polyarchy Score",
                 "b_un_distance_z" = "UN Voting Distance",
                 "b_executive_alignment" = "Executive Alignment",
-                "b_refugee_asylum_total_z" = "Total Asylum and Refugee Grants",
+                "b_asylum_refugee_total_z" = "Total Asylum and Refugee Grants",
                 "b_infant_mortality_rate_z" = "Infant Mortality Rate",
                 "b_homicide_rate_z" = "Homicide Rate",
                 "b_healthcare_expenditures_z" = "Healthcare Expenditures",
@@ -1858,7 +1915,7 @@ mod.list <- list("Intercepts" = model.intercepts.l1,
 
 posterior.list.base <- map(.x = seq_along(mod.list), 
                        .f = ~ t(brms::posterior_epred(mod.list[[.x]], 
-                                                      ndraws = 200,
+                                                      ndraws = 100,
                                                       re_fomula = NULL)) |> 
                          as.data.frame() |> 
                          rowwise() |> 
@@ -1951,7 +2008,7 @@ mod.list <- list("Intercepts" = model.intercepts.nested.l1,
 
 posterior.list.nested <- map(.x = seq_along(mod.list), 
                        .f = ~ t(brms::posterior_epred(mod.list[[.x]], 
-                                                      ndraws = 200,
+                                                      ndraws = 100,
                                                       re_formula = NULL)) |> 
                          as.data.frame() |> 
                          rowwise() |> 
